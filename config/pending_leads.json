@@ -1,0 +1,156 @@
+{
+  "cd6ae0a1": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация, маркировка, обучение",
+    "reason": "Компания предоставляет услуги по регистрации в ЧЗ и Честном знаке",
+    "text": "Кто может сделать коды честный знак?"
+  },
+  "e665b0fb": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация в ЧЗ",
+    "reason": "Предоставляет服务 регистрации и маркировки",
+    "text": "Кто может сделать коды честный знак?"
+  },
+  "a9a2a417": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация, маркировка, обучение, интеграция, другое (выбери одно)",
+    "reason": "Сообщения и оценки содержат одинаковые вопросы и ответы",
+    "text": "Кто может сделать коды честный знак?"
+  },
+  "14f87aca": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация, маркировка, обучение, интеграция, другое (выбери одно)",
+    "reason": "Оказывают обучение",
+    "text": "Кто может сделать коды честный знак?"
+  },
+  "6cf6085a": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация, маркировка, обучение",
+    "reason": "Услуги по маркировке и регистрации в Честном знаке",
+    "text": "Кто может сделать коды честный знак?"
+  },
+  "b98a0cf7": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация, маркировка, обучение, интеграция, другое (выбери одно)",
+    "reason": "Регистрация в Честном знаке",
+    "text": "Кто может сделать коды честный знак?"
+  },
+  "dd8025dd": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация в Честном znаке",
+    "reason": "Обучение и сопровождение по всем процессам",
+    "text": "Кто может сделать коды честный знак?"
+  },
+  "bc2d6ecf": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация, маркировка",
+    "reason": "Компания выдает коды Честного знака",
+    "text": "Кто может сделать коды честный знак?"
+  },
+  "5142d557": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация в ЧЗ",
+    "reason": "Организация может получить коды честного знака от нас",
+    "text": "Всем привет, где можно полный комплект прокладок на миуру купить?"
+  },
+  "7090d7fe": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация в ЧЗ",
+    "reason": "У нас есть experiencia с регистрацией в Честном знаке и обеспечиваем obedientность по все процессам",
+    "text": "Кто может сделать коды честный знак?"
+  },
+  "9c8722f3": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация в ЧЗ",
+    "reason": "Кто может сделать коды честный знак?",
+    "text": "Alright, a new bot. How are we going to call it? Please choose a name for your bot."
+  },
+  "947cc5fb": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация, маркировка",
+    "reason": "Уточнение сферы деятельности",
+    "text": "AI Lead Generator"
+  },
+  "2f96990d": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация, маркировка, обучение, интеграция, другое (выбери одно)",
+    "reason": "Название компании соответствует основной услуге",
+    "text": "Sorry, the username must end in `bot`. E.g. Tetris_bot or Tetrisbot."
+  },
+  "908d60cc": {
+    "relevant": 1,
+    "score": 80,
+    "category": "обучение, маркировка",
+    "reason": "обучение и маркировка фиксированы",
+    "text": "ai_lead_generator_bot"
+  },
+  "6676ff80": {
+    "relevant": 1,
+    "score": 80,
+    "category": "AI Lead Generator",
+    "reason": "Коротко: АИ для génерации лидов",
+    "text": "ai_lead_scanner_bot"
+  },
+  "99eba5d0": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация, маркировка, обучение, интеграция, другое (выбери одно)",
+    "reason": "Маркетплейсы и селлеры могут работать с Честным Зnakом",
+    "text": "Sorry, this username is already taken. Please try something different."
+  },
+  "9946ec8d": {
+    "relevant": 1,
+    "score": 80,
+    "category": "AI Lead Generator",
+    "reason": "Сообщение содержит ключевые слова для AI_lead_generator",
+    "text": "lead_scanner_ai_bot"
+  },
+  "0b93789a": {
+    "relevant": 1,
+    "score": 80,
+    "category": "обучение работе в ЧЗ (Честным Знаком)",
+    "reason": "Коды честный знак",
+    "text": "Done! Congratulations on your new bot. You will find it at t.me/lead_scanner_ai_bot. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.\n\nUse this token to access the HTTP API:\n`8975258409:AAGyIbPdAgaqN1jrLQd3hD0OuHNx1zIih58`\nKeep your token **secure** and **store it safely**, it can be used by anyone to control your bot.\n\nFor a description of the Bot API, see this page: https://core.telegram.org/bots/api"
+  },
+  "2e6dc360": {
+    "relevant": 1,
+    "score": 80,
+    "category": "AI Lead Generator",
+    "reason": "Код ай-лед генератора соответствует критериям",
+    "text": "🔥 НОВЫЙ ЛИД\n\n📊 Score: 80\n📂 Category: AI Lead Generator\n\n💬 Сообщение:\nai_lead_scanner_bot"
+  },
+  "f6f7a5c1": {
+    "relevant": 1,
+    "score": 80,
+    "category": "информатика, компьютерная технология, программирование",
+    "reason": "Назвал bot по правильному шаблону",
+    "text": "Тест кнопок"
+  },
+  "be5e9f85": {
+    "relevant": 1,
+    "score": 80,
+    "category": "обучение, маркировка",
+    "reason": "допустимое имя bot",
+    "text": "Тест кнопки"
+  },
+  "a7065443": {
+    "relevant": 1,
+    "score": 80,
+    "category": "регистрация, маркировка, обучение, интеграция",
+    "reason": "всё соответствует",
+    "text": "Тест кнопок"
+  }
+}
