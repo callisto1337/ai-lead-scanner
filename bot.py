@@ -107,10 +107,12 @@ async def send_to_leads(result):
 🔥 НОВЫЙ ЛИД
 
 📊 Score: {result['score']}
-📂 Category: {result['category']}
 
 💬 Сообщение:
 {result['text']}
+
+🔗 Источник:
+{result['link']}
 """
 
 
@@ -125,6 +127,9 @@ async def send_to_leads(result):
 # -----------------------
 # обработчик кнопок
 # -----------------------
+
+async def error_handler(update: object, context):
+    print("❌ Telegram bot error:", context.error)
 
 async def button_handler(update: Update, context):
 
@@ -159,23 +164,32 @@ async def button_handler(update: Update, context):
         rating = "bad"
         mark = "👎 Оценка: плохой лид"
 
+    save_feedback(
+        lead,
+        rating
+    )
 
+    # обновляем текст и сразу убираем кнопки
+    old_text = query.message.text or ""
+
+    if "👍 Оценка: хороший лид" in old_text or "👎 Оценка: плохой лид" in old_text:
+        await query.answer(
+            "Оценка уже сохранена",
+            show_alert=False
+        )
+        return
 
     save_feedback(
         lead,
         rating
     )
 
-    # обновляем текст (без трогания логики)
-    old_text = query.message.text
-
     new_text = old_text + f"\n\n{mark}"
 
-    # 1. сначала обновляем текст
-    await query.message.edit_text(new_text)
-
-    # 2. отдельно убираем кнопки (ВАЖНО)
-    await query.message.edit_reply_markup(reply_markup=None)
+    await query.message.edit_text(
+        text=new_text,
+        reply_markup=None
+    )
 
 
 
@@ -201,7 +215,6 @@ def save_feedback(lead, rating):
         {
             "text": lead["text"],
             "score": lead["score"],
-            "category": lead["category"],
             "rating": rating,
             "time": str(datetime.now())
         }
@@ -233,6 +246,8 @@ def run_bot():
     app.add_handler(
         CallbackQueryHandler(button_handler)
     )
+
+    app.add_error_handler(error_handler)
 
 
     app.run_polling()
