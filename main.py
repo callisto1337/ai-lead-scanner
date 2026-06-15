@@ -4,6 +4,8 @@ from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv
 from pathlib import Path
 import os
+import html
+
 BASE_DIR = Path(__file__).parent
 
 
@@ -95,9 +97,9 @@ async def handler(event):
         result["user_id"] = sender.id
 
         if sender.username:
-            user_link = f'<a href="https://t.me/{sender.username}">@{sender.username}</a>'
+            user_link = f'<a href="https://t.me/{html.escape(sender.username)}">@{html.escape(sender.username)}</a>'
         else:
-            user_link = f'<a href="tg://user?id={sender.id}">профиль пользователя</a>'
+            user_link = f"ID: {sender.id}"
 
     else:
         result["user_id"] = None

@@ -196,9 +196,6 @@ async def send_to_leads(result):
     message = f"""
 🔥 НОВЫЙ ЛИД
 
-📂 Категория:
-{html.escape(result.get("category", "другое"))}
-
 💬 Сообщение:
 {html.escape(result["text"])}
 
@@ -208,14 +205,6 @@ async def send_to_leads(result):
 🔗 Источник:
 {html.escape(result.get("link", "нет ссылки"))}
 """
-    await bot.send_message(
-        chat_id=LEADS_CHAT_ID,
-        text=message,
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(
-            keyboard
-        )
-    )
 
 
     await bot.send_message(
@@ -223,7 +212,8 @@ async def send_to_leads(result):
         text=message,
         reply_markup=InlineKeyboardMarkup(
             keyboard
-        )
+        ),
+        parse_mode="HTML"
     )
 
 
@@ -232,22 +222,28 @@ async def send_to_leads(result):
 
 async def button_handler(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     query = update.callback_query
 
+    if not query or not query.data:
+        return
+
     await query.answer()
 
-
-    action, lead_id = query.data.split(":")
-
+    try:
+        action, lead_id = query.data.split(":", 1)
+    except ValueError:
+        await query.answer(
+            "Некорректные данные кнопки",
+            show_alert=True
+        )
+        return
 
     pending = load_pending_leads()
 
-
     lead = pending.get(lead_id)
-
 
     if not lead:
 
@@ -258,21 +254,17 @@ async def button_handler(
 
         return
 
-
-
     if action == "good":
 
         rating_text = "👍 Оценка: хороший лид"
         feedback = "good"
         is_lead = True
 
-
     elif action == "bad":
 
         rating_text = "👎 Оценка: плохой лид"
         feedback = "bad"
         is_lead = False
-
 
     elif action == "spam":
 
@@ -284,7 +276,6 @@ async def button_handler(
             lead.get("user_id")
         )
 
-
     else:
 
         await query.answer(
@@ -294,31 +285,16 @@ async def button_handler(
 
         return
 
-
-
     if feedback != "spam":
 
         save_memory({
-
             "text": lead["text"],
-
-            "category": lead.get(
-                "category",
-                "другое"
-            ),
-
             "lead": is_lead,
-
             "feedback": feedback,
-
             "time": str(datetime.now())
-
         })
 
-
-
     old_text = query.message.text
-
 
     await query.edit_message_text(
         text=old_text + "\n\n" + rating_text,
