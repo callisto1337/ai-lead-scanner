@@ -186,7 +186,7 @@ async def send_to_leads(result):
         ],
         [
             InlineKeyboardButton(
-                "🚫 Спам",
+                "🚫 Спам / Игнор",
                 callback_data=f"spam:{lead_id}"
             )
         ]
@@ -194,17 +194,17 @@ async def send_to_leads(result):
 
 
     message = f"""
-🔥 НОВЫЙ ЛИД
-
-💬 Сообщение:
-{html.escape(result["text"])}
-
-👤 Пользователь:
-{result.get("user_link", "нет ссылки")}
-
-🔗 Источник:
-{html.escape(result.get("link", "нет ссылки"))}
-"""
+    🔥 НОВЫЙ ЛИД
+    
+    💬 Сообщение:
+    {html.escape(result["text"])}
+    
+    👤 Пользователь:
+    {result.get("user_link", "нет ссылки")}
+    
+    🔗 Источник:
+    {html.escape(result.get("link", "нет ссылки"))}
+    """
 
 
     await bot.send_message(
@@ -268,7 +268,7 @@ async def button_handler(
 
     elif action == "spam":
 
-        rating_text = "🚫 Оценка: спам"
+        rating_text = "🚫 Оценка: спам / игнор"
         feedback = "spam"
         is_lead = False
 

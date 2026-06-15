@@ -110,6 +110,7 @@ async def handler(event):
 
     if result["lead"]:
         print("🔥 Найден лид")
+        print("💬 Сообщение:", text)
 
         result["link"] = await build_tg_link(event)
 
@@ -117,10 +118,10 @@ async def handler(event):
             result,
         )
     else:
-        print(
-            "💬 Нерелевантное сообщение:",
-            text
-        )
+        print("💬 Нерелевантное сообщение:", text)
+
+    print("🤖 Объяснение:", result.get("description", "Нет объяснения"))
+    print("---------------")
 
 
 print("🚀 Запуск...")
