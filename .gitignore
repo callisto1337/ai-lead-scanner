@@ -2,3 +2,4 @@
 .env
 lead_monitor.session
 lead_monitor.session-journal
+/config/memory.json
