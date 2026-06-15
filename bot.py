@@ -42,6 +42,49 @@ def memory_path():
 
 
 
+def blacklist_path():
+    return BASE_DIR / "config" / "blacklist.txt"
+
+
+
+def add_to_blacklist(value):
+
+    if not value:
+        return
+
+    value = str(value).strip()
+
+    if not value:
+        return
+
+    path = blacklist_path()
+
+    try:
+        existing = {
+            line.strip()
+            for line in path.read_text(
+                encoding="utf-8"
+            ).splitlines()
+            if line.strip()
+        }
+
+    except:
+        existing = set()
+
+
+    if value in existing:
+        return
+
+
+    existing.add(value)
+
+
+    path.write_text(
+        "\n".join(sorted(existing)) + "\n",
+        encoding="utf-8"
+    )
+
+
 def save_pending_lead(lead_id, data):
 
     path = pending_path()
@@ -227,6 +270,10 @@ async def button_handler(
         rating_text = "🚫 Оценка: спам"
         feedback = "spam"
         is_lead = False
+
+        add_to_blacklist(
+            lead.get("user_id")
+        )
 
 
     else:

@@ -98,7 +98,7 @@ def load_text(filename):
 
 
 KEYWORDS = load_lines("keywords.txt")
-BLACKLIST = load_lines("blacklist.txt")
+STOPWORDS_LIST = load_lines("stopwords.txt")
 ABOUT = load_text("about.txt")
 
 
@@ -138,7 +138,7 @@ def is_lead(text):
 
     # быстрый стоп
 
-    for word in BLACKLIST:
+    for word in STOPWORDS_LIST:
         if normalize(word) in text_lower:
             return {
                 "lead": False,
@@ -242,7 +242,7 @@ lead=false
 
 {{
 "lead": true или false,
-"category": "категория"
+"category": "категория из списка выше"
 }}
 
 

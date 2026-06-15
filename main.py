@@ -2,7 +2,9 @@ from telethon import TelegramClient, events
 from filter import is_lead
 from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv
+from pathlib import Path
 import os
+BASE_DIR = Path(__file__).parent
 
 
 load_dotenv()
@@ -18,6 +20,20 @@ client = TelegramClient(
     api_hash
 )
 
+
+def load_blacklist():
+    path = BASE_DIR / "config" / "blacklist.txt"
+
+    if not path.exists():
+        return set()
+
+    return {
+        line.strip()
+        for line in path.read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    }
 
 async def build_tg_link(event):
 
@@ -43,15 +59,22 @@ async def build_tg_link(event):
 @client.on(events.NewMessage())
 async def handler(event):
 
-    # if event.out:
-    #     return
-    #
-    # if event.chat_id == LEADS_CHAT_ID:
-    #     return
+    if event.out:
+        return
+
+    if event.chat_id == LEADS_CHAT_ID:
+        return
 
     sender = await event.get_sender()
 
     if sender and getattr(sender, "bot", False):
+        return
+
+    if sender and str(sender.id) in load_blacklist():
+        print(
+            "⛔ BLACKLIST USER:",
+            sender.id
+        )
         return
 
     text = event.message.text
@@ -69,13 +92,16 @@ async def handler(event):
 
     if sender:
 
+        result["user_id"] = sender.id
+
         if sender.username:
-            user_link = f"https://t.me/{sender.username}"
+            user_link = f'@{sender.username}'
 
         else:
-            user_link = f"tg://user?id={sender.id}"
+            user_link = f'https://t.me/{sender.id}"'
 
     else:
+        result["user_id"] = None
         user_link = "нет ссылки"
 
 
