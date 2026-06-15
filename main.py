@@ -15,7 +15,7 @@ api_hash = os.getenv("API_HASH")
 
 
 client = TelegramClient(
-    "lead_monitor",
+    "sessions/lead_monitor",
     api_id,
     api_hash
 )
@@ -95,10 +95,9 @@ async def handler(event):
         result["user_id"] = sender.id
 
         if sender.username:
-            user_link = f'@{sender.username}'
-
+            user_link = f'<a href="https://t.me/{sender.username}">@{sender.username}</a>'
         else:
-            user_link = f'https://t.me/{sender.id}"'
+            user_link = f'<a href="tg://user?id={sender.id}">профиль пользователя</a>'
 
     else:
         result["user_id"] = None

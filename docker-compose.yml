@@ -1,0 +1,27 @@
+services:
+
+  monitor:
+    build: .
+    container_name: lead-scanner-monitor
+    command: python main.py
+    restart: always
+
+    env_file:
+      - .env
+
+    volumes:
+      - ./config:/app/config
+      - ./sessions:/app/sessions
+
+
+  bot:
+    build: .
+    container_name: lead-scanner-bot
+    command: python bot.py
+    restart: always
+
+    env_file:
+      - .env
+
+    volumes:
+      - ./config:/app/config

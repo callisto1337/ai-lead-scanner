@@ -16,6 +16,7 @@ from pathlib import Path
 import os
 import json
 import uuid
+import html
 from datetime import datetime
 
 
@@ -196,17 +197,25 @@ async def send_to_leads(result):
 🔥 НОВЫЙ ЛИД
 
 📂 Категория:
-{result.get("category", "другое")}
+{html.escape(result.get("category", "другое"))}
 
 💬 Сообщение:
-{result["text"]}
+{html.escape(result["text"])}
 
 👤 Пользователь:
 {result.get("user_link", "нет ссылки")}
 
 🔗 Источник:
-{result.get("link", "нет ссылки")}
+{html.escape(result.get("link", "нет ссылки"))}
 """
+    await bot.send_message(
+        chat_id=LEADS_CHAT_ID,
+        text=message,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            keyboard
+        )
+    )
 
 
     await bot.send_message(
