@@ -1,6 +1,6 @@
 from telethon import TelegramClient, events
 from filter import is_lead
-from bot import send_to_leads
+from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv
 import os
 
@@ -18,27 +18,37 @@ client = TelegramClient(
     api_hash
 )
 
-def build_tg_link(chat_id, message_id):
-    # приватные супергруппы / каналы
-    if str(chat_id).startswith("-100"):
-        chat_id = str(chat_id)[4:]
-        return f"https://t.me/c/{chat_id}/{message_id}"
 
-    # публичные чаты
-    return f"https://t.me/{chat_id}/{message_id}"
+async def build_tg_link(event):
+
+    chat = await event.get_chat()
+    message_id = event.message.id
+
+    username = getattr(chat, "username", None)
+
+    if username:
+        return f"https://t.me/{username}/{message_id}"
+
+    chat_id = str(event.chat_id)
+
+    # приватные супергруппы / каналы
+    if chat_id.startswith("-100"):
+        internal_id = chat_id[4:]
+        return f"https://t.me/c/{internal_id}/{message_id}"
+
+    return "Нет публичной ссылки"
+
+
 
 @client.on(events.NewMessage())
 async def handler(event):
 
     # if event.out:
     #     return
+    #
+    # if event.chat_id == LEADS_CHAT_ID:
+    #     return
 
-    chat = await event.get_chat()
-
-    chat_id = str(event.chat_id)
-    message_id = event.message.id
-
-    # игнорируем сообщения Telegram-бота
     sender = await event.get_sender()
 
     if sender and getattr(sender, "bot", False):
@@ -49,32 +59,50 @@ async def handler(event):
     if not text:
         return
 
-    print("📩 Новое сообщение:", text)
 
     result = is_lead(text)
 
+
     if not result:
-        print("⚠️ Сообщение не обработано фильтром:", text)
         return
 
-    print("🧠 Результат фильтра:", result)
 
-    if result["lead"] == 1 and result["score"] >= 50:
+    if sender:
 
+        if sender.username:
+            user_link = f"https://t.me/{sender.username}"
+
+        else:
+            user_link = f"tg://user?id={sender.id}"
+
+    else:
+        user_link = "нет ссылки"
+
+
+    result["user_link"] = user_link
+
+    if result["lead"]:
         print("🔥 Найден лид")
-        result["link"] = build_tg_link(event.chat_id, event.message.id)
+
+        result["link"] = await build_tg_link(event)
 
         await send_to_leads(
-            result
+            result,
         )
     else:
-        print("💬 Нерелевантный запрос: " + text)
+        print(
+            "💬 Нерелевантное сообщение:",
+            text
+        )
 
 
-print("Запуск...")
+print("🚀 Запуск...")
+
 
 client.start()
 
-print("Клиент запущен")
+
+print("✅ Клиент запущен")
+
 
 client.run_until_disconnected()

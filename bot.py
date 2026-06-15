@@ -4,18 +4,19 @@ from telegram import (
     InlineKeyboardMarkup,
     Update
 )
-
 from telegram.ext import (
     Application,
-    CallbackQueryHandler
+    CallbackQueryHandler,
+    ContextTypes
 )
 
-import uuid
-import json
-from datetime import datetime
-from pathlib import Path
 from dotenv import load_dotenv
+
+from pathlib import Path
 import os
+import json
+import uuid
+from datetime import datetime
 
 
 load_dotenv()
@@ -23,20 +24,27 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 LEADS_CHAT_ID = int(os.getenv("LEADS_CHAT_ID"))
-
 BASE_DIR = Path(__file__).parent
-
 
 bot = Bot(BOT_TOKEN)
 
 
-# -----------------------
-# временное хранилище лидов
-# -----------------------
+# ---------------- STORAGE ----------------
+
+
+def pending_path():
+    return BASE_DIR / "config" / "pending_leads.json"
+
+
+
+def memory_path():
+    return BASE_DIR / "config" / "memory.json"
+
+
 
 def save_pending_lead(lead_id, data):
 
-    path = BASE_DIR / "config" / "pending_leads.json"
+    path = pending_path()
 
     try:
         storage = json.loads(
@@ -45,7 +53,9 @@ def save_pending_lead(lead_id, data):
     except:
         storage = {}
 
+
     storage[lead_id] = data
+
 
     path.write_text(
         json.dumps(
@@ -58,24 +68,54 @@ def save_pending_lead(lead_id, data):
 
 
 
-def load_pending_lead(lead_id):
-
-    path = BASE_DIR / "config" / "pending_leads.json"
+def load_pending_leads():
 
     try:
-        storage = json.loads(
-            path.read_text(encoding="utf-8")
+        return json.loads(
+            pending_path().read_text(
+                encoding="utf-8"
+            )
         )
+
     except:
-        return None
-
-    return storage.get(lead_id)
+        return {}
 
 
 
-# -----------------------
-# отправка лида
-# -----------------------
+def save_memory(item):
+
+    path = memory_path()
+
+    try:
+        memory = json.loads(
+            path.read_text(
+                encoding="utf-8"
+            )
+        )
+
+    except:
+        memory = []
+
+
+    memory.append(item)
+
+
+    memory = memory[-200:]
+
+
+    path.write_text(
+        json.dumps(
+            memory,
+            ensure_ascii=False,
+            indent=2
+        ),
+        encoding="utf-8"
+    )
+
+
+
+# ---------------- SEND ----------------
+
 
 async def send_to_leads(result):
 
@@ -99,6 +139,12 @@ async def send_to_leads(result):
                 "👎 Плохой",
                 callback_data=f"bad:{lead_id}"
             )
+        ],
+        [
+            InlineKeyboardButton(
+                "🚫 Спам",
+                callback_data=f"spam:{lead_id}"
+            )
         ]
     ]
 
@@ -106,32 +152,36 @@ async def send_to_leads(result):
     message = f"""
 🔥 НОВЫЙ ЛИД
 
-📊 Score: {result['score']}
+📂 Категория:
+{result.get("category", "другое")}
 
 💬 Сообщение:
-{result['text']}
+{result["text"]}
+
+👤 Пользователь:
+{result.get("user_link", "нет ссылки")}
 
 🔗 Источник:
-{result['link']}
+{result.get("link", "нет ссылки")}
 """
 
 
     await bot.send_message(
         chat_id=LEADS_CHAT_ID,
         text=message,
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=InlineKeyboardMarkup(
+            keyboard
+        )
     )
 
 
+# ---------------- BUTTONS ----------------
 
-# -----------------------
-# обработчик кнопок
-# -----------------------
 
-async def error_handler(update: object, context):
-    print("❌ Telegram bot error:", context.error)
-
-async def button_handler(update: Update, context):
+async def button_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     query = update.callback_query
 
@@ -141,100 +191,88 @@ async def button_handler(update: Update, context):
     action, lead_id = query.data.split(":")
 
 
-    lead = load_pending_lead(lead_id)
+    pending = load_pending_leads()
+
+
+    lead = pending.get(lead_id)
 
 
     if not lead:
+
         await query.answer(
-            "❌ Лид не найден",
+            "Лид не найден",
             show_alert=True
         )
+
         return
 
 
 
     if action == "good":
 
-        rating = "good"
-        mark = "👍 Оценка: хороший лид"
+        rating_text = "👍 Оценка: хороший лид"
+        feedback = "good"
+        is_lead = True
+
+
+    elif action == "bad":
+
+        rating_text = "👎 Оценка: плохой лид"
+        feedback = "bad"
+        is_lead = False
+
+
+    elif action == "spam":
+
+        rating_text = "🚫 Оценка: спам"
+        feedback = "spam"
+        is_lead = False
 
 
     else:
 
-        rating = "bad"
-        mark = "👎 Оценка: плохой лид"
-
-    save_feedback(
-        lead,
-        rating
-    )
-
-    # обновляем текст и сразу убираем кнопки
-    old_text = query.message.text or ""
-
-    if "👍 Оценка: хороший лид" in old_text or "👎 Оценка: плохой лид" in old_text:
         await query.answer(
-            "Оценка уже сохранена",
-            show_alert=False
+            "Неизвестное действие",
+            show_alert=True
         )
+
         return
 
-    save_feedback(
-        lead,
-        rating
-    )
 
-    new_text = old_text + f"\n\n{mark}"
 
-    await query.message.edit_text(
-        text=new_text,
+    if feedback != "spam":
+
+        save_memory({
+
+            "text": lead["text"],
+
+            "category": lead.get(
+                "category",
+                "другое"
+            ),
+
+            "lead": is_lead,
+
+            "feedback": feedback,
+
+            "time": str(datetime.now())
+
+        })
+
+
+
+    old_text = query.message.text
+
+
+    await query.edit_message_text(
+        text=old_text + "\n\n" + rating_text,
         reply_markup=None
     )
 
 
 
-# -----------------------
-# обучение
-# -----------------------
+# ---------------- RUN ----------------
 
-def save_feedback(lead, rating):
-
-    path = BASE_DIR / "config" / "memory.json"
-
-
-    try:
-        memory = json.loads(
-            path.read_text(encoding="utf-8")
-        )
-
-    except:
-        memory = []
-
-
-    memory.append(
-        {
-            "text": lead["text"],
-            "score": lead["score"],
-            "rating": rating,
-            "time": str(datetime.now())
-        }
-    )
-
-
-    path.write_text(
-        json.dumps(
-            memory,
-            ensure_ascii=False,
-            indent=2
-        ),
-        encoding="utf-8"
-    )
-
-
-
-# -----------------------
-# запуск бота
-# -----------------------
 
 def run_bot():
 
@@ -244,14 +282,16 @@ def run_bot():
 
 
     app.add_handler(
-        CallbackQueryHandler(button_handler)
+        CallbackQueryHandler(
+            button_handler
+        )
     )
-
-    app.add_error_handler(error_handler)
 
 
     app.run_polling()
 
 
+
 if __name__ == "__main__":
+
     run_bot()
