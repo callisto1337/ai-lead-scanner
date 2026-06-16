@@ -273,7 +273,7 @@ lead=true
     try:
 
         response = ollama.chat(
-            model="qwen2.5:14b",
+            model="qwen2.5:7b",
             messages=[
                 {
                     "role": "system",
