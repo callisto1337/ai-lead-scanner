@@ -2,6 +2,7 @@ import json
 import ollama
 from pathlib import Path
 import re
+from memory import load_memory
 
 
 BASE_DIR = Path(__file__).parent.parent
@@ -30,41 +31,6 @@ def extract_json(text):
     except Exception as e:
         print("❌ JSON extract error:", e)
         return None
-
-
-# ---------------- MEMORY ----------------
-
-def load_memory():
-    path = BASE_DIR / "config" / "memory.json"
-
-    if not path.exists():
-        return []
-
-    try:
-        return json.loads(
-            path.read_text(encoding="utf-8")
-        )
-    except:
-        return []
-
-
-def save_memory(item):
-    path = BASE_DIR / "config" / "memory.json"
-
-    memory = load_memory()
-
-    memory.append(item)
-
-    memory = memory[-200:]
-
-    path.write_text(
-        json.dumps(
-            memory,
-            ensure_ascii=False,
-            indent=2
-        ),
-        encoding="utf-8"
-    )
 
 
 # ---------------- CONFIG ----------------

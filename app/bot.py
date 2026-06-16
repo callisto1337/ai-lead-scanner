@@ -17,6 +17,7 @@ import json
 import uuid
 import html
 from datetime import datetime
+from memory import save_memory
 
 
 load_dotenv()
@@ -34,11 +35,6 @@ bot = Bot(BOT_TOKEN)
 
 def pending_path():
     return BASE_DIR / "config" / "pending_leads.json"
-
-
-
-def memory_path():
-    return BASE_DIR / "config" / "memory.json"
 
 
 
@@ -122,39 +118,6 @@ def load_pending_leads():
 
     except:
         return {}
-
-
-
-def save_memory(item):
-
-    path = memory_path()
-
-    try:
-        memory = json.loads(
-            path.read_text(
-                encoding="utf-8"
-            )
-        )
-
-    except:
-        memory = []
-
-
-    memory.append(item)
-
-
-    memory = memory[-200:]
-
-
-    path.write_text(
-        json.dumps(
-            memory,
-            ensure_ascii=False,
-            indent=2
-        ),
-        encoding="utf-8"
-    )
-
 
 
 # ---------------- SEND ----------------
@@ -289,7 +252,8 @@ async def button_handler(
             "text": lead["text"],
             "lead": is_lead,
             "feedback": feedback,
-            "time": str(datetime.now())
+            "time": str(datetime.now()),
+            "description": lead["description"],
         })
 
     old_text = query.message.text
