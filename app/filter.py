@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 
 
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).parent.parent
 
 
 # ---------------- HELPERS ----------------
@@ -151,7 +151,8 @@ def is_lead(text):
         if normalize(word) in text_lower:
             return {
                 "lead": False,
-                "text": text
+                "text": text,
+                "description": f"🚫 Сообщение отфильтровано стоп-словом: {word}"
             }
 
 

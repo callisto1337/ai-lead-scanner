@@ -7,7 +7,6 @@ from telegram import (
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
-    ContextTypes
 )
 
 from dotenv import load_dotenv
@@ -23,9 +22,9 @@ from datetime import datetime
 load_dotenv()
 
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = str(os.getenv("BOT_TOKEN"))
 LEADS_CHAT_ID = int(os.getenv("LEADS_CHAT_ID"))
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 bot = Bot(BOT_TOKEN)
 
@@ -222,7 +221,6 @@ async def send_to_leads(result):
 
 async def button_handler(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     query = update.callback_query
@@ -308,6 +306,8 @@ async def button_handler(
 
 def run_bot():
 
+    print("🚀 Запуск бота...")
+
     app = Application.builder()\
         .token(BOT_TOKEN)\
         .build()
@@ -321,6 +321,9 @@ def run_bot():
 
 
     app.run_polling()
+
+    print("🤖 Бот запущен")
+
 
 
 

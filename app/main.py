@@ -5,8 +5,11 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 import html
+import sys
 
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).resolve().parent.parent
+SESSIONS_DIR = BASE_DIR / "sessions"
+SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 load_dotenv()
@@ -17,7 +20,7 @@ api_hash = os.getenv("API_HASH")
 
 
 client = TelegramClient(
-    "sessions/lead_monitor",
+    str(SESSIONS_DIR / "lead_monitor"),
     api_id,
     api_hash
 )
@@ -75,7 +78,8 @@ async def handler(event):
     if sender and str(sender.id) in load_blacklist():
         print(
             "⛔ BLACKLIST USER:",
-            sender.id
+            sender.id,
+            flush=True
         )
         return
 
@@ -109,8 +113,8 @@ async def handler(event):
     result["user_link"] = user_link
 
     if result["lead"]:
-        print("🔥 Найден лид")
-        print("💬 Сообщение:", text)
+        print("🔥 Найден лид", flush=True)
+        print("💬 Сообщение:", text, flush=True)
 
         result["link"] = await build_tg_link(event)
 
@@ -118,19 +122,23 @@ async def handler(event):
             result,
         )
     else:
-        print("💬 Нерелевантное сообщение:", text)
+        print("💬 Нерелевантное сообщение:", text, flush=True)
 
-    print("🤖 Объяснение:", result.get("description", "Нет объяснения"))
-    print("---------------")
-
-
-print("🚀 Запуск...")
+    print("🤖Объяснение:", result.get("description", "Нет объяснения"), flush=True)
+    print("---------------", flush=True)
 
 
-client.start()
+print("🚀 Запуск мониторинга...", flush=True)
+sys.stdout.flush()
 
-
-print("✅ Клиент запущен")
-
-
-client.run_until_disconnected()
+try:
+    client.start()
+    print("🖥️ Мониторинг запущен", flush=True)
+    sys.stdout.flush()
+    client.run_until_disconnected()
+except Exception as e:
+    print(f"❌ Ошибка: {e}", flush=True)
+    sys.stderr.flush()
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
