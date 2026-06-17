@@ -1,6 +1,6 @@
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
-from prefiter import prefilter_message
+from prefilter import prefilter_message
 from filter import is_lead
 from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv

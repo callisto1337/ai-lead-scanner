@@ -164,6 +164,12 @@ async def send_to_leads(result):
                 "🚫 Спам / Игнор",
                 callback_data=f"spam:{lead_id}"
             )
+        ],
+        [
+            InlineKeyboardButton(
+                "⏭️ Пропустить",
+                callback_data=f"skip:{lead_id}"
+            )
         ]
     ]
 
@@ -171,15 +177,15 @@ async def send_to_leads(result):
     message = f"""
     🔥 НОВЫЙ ЛИД
 
-    💬 Сообщение:
-    {html.escape(result["text"])}
+💬 Сообщение:
+{html.escape(result["text"])}
 
-    👤 Пользователь:
-    {result.get("user_link", "нет ссылки")}
+👤 Пользователь:
+{result.get("user_link", "нет ссылки")}
 
-    🔗 Источник:
-    {html.escape(result.get("link", "нет ссылки"))}
-    """
+🔗 Источник:
+{html.escape(result.get("link", "нет ссылки"))}
+"""
 
 
     for attempt in range(3):
@@ -289,6 +295,12 @@ async def button_handler(
             lead.get("user_id")
         )
 
+    elif action == "skip":
+
+        rating_text = "⏭️ Оценка: пропущено"
+        feedback = "skip"
+        is_lead = None
+
     else:
 
         await query.answer(
@@ -298,7 +310,7 @@ async def button_handler(
 
         return
 
-    if feedback != "spam":
+    if feedback not in ("spam", "skip"):
 
         save_memory({
             "text": lead["text"],
