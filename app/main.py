@@ -102,9 +102,22 @@ async def handler(event):
 
         result["link"] = await build_tg_link(event)
 
-        await send_to_leads(
-            result,
-        )
+        try:
+            sent = await send_to_leads(
+                result,
+            )
+
+            if not sent:
+                print(
+                    "⚠️ Лид найден, но не отправлен в чат лидов",
+                    flush=True
+                )
+
+        except Exception as e:
+            print(
+                f"❌ Ошибка при отправке лида: {e}",
+                flush=True
+            )
     else:
         print("💬 Нерелевантное сообщение:", text, flush=True)
 
