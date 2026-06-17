@@ -1,5 +1,6 @@
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
+from utils import has_link, is_duplicate
 from filter import is_lead
 from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv
@@ -68,23 +69,37 @@ async def handler(event):
 
     text = event.message.text
     clean_text = text.strip()
-    short_text = clean_text[:100] + "..." if len(clean_text) > 100 else text
+    short_text = clean_text[:100] + "..." if len(clean_text) > 100 else clean_text
 
     if not clean_text:
         return
 
     print("💬 Новое сообщение:", short_text, flush=True)
 
+    if is_duplicate(text):
+        print("❌ Спам")
+        print("---------------", flush=True)
+        return
+
     if len(clean_text) > 1000:
         print(
             "❌ Сообщение слишком длинное",
         )
+        print("---------------", flush=True)
         return
 
     if len(clean_text) < 20:
         print(
             "❌ Сообщение слишком короткое",
         )
+        print("---------------", flush=True)
+        return
+
+    if has_link(text):
+        print(
+            "❌ В сообщении есть ссылки",
+        )
+        print("---------------", flush=True)
         return
 
     result = is_lead(clean_text)
