@@ -67,14 +67,21 @@ async def handler(event):
         return
 
     text = event.message.text
+    clean_text = text.strip()
+    short_text = clean_text[:100] + "..." if len(clean_text) > 100 else text
 
-    print("💬 Новое сообщение:", text, flush=True)
-
-    if not text:
+    if not clean_text:
         return
 
+    print("💬 Новое сообщение:", short_text, flush=True)
 
-    result = is_lead(text)
+    if len(clean_text) > 1000:
+        print(
+            "❌ Сообщение слишком длинное",
+        )
+        return
+
+    result = is_lead(clean_text)
 
 
     if not result:
