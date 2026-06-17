@@ -7,6 +7,7 @@ from telegram import (
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
+    ContextTypes,
 )
 
 from dotenv import load_dotenv
@@ -184,6 +185,7 @@ async def send_to_leads(result):
 
 async def button_handler(
     update: Update,
+    context: ContextTypes.DEFAULT_TYPE, # не удалять!!
 ):
 
     query = update.callback_query
