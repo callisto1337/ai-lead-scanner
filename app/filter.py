@@ -2,6 +2,7 @@ import json
 import ollama
 from pathlib import Path
 import re
+import time
 from memory import load_memory
 
 
@@ -104,9 +105,6 @@ feedback={item.get("feedback", "unknown")}
 
 
 def is_lead(text):
-    if not text or len(text.strip()) < 5:
-        return None
-
 
     text_lower = normalize(text)
 
@@ -179,6 +177,8 @@ lead=false, если:
 
     try:
 
+        start_time = time.perf_counter()
+
         response = ollama.chat(
             model="qwen2.5:7b",
             messages=[
@@ -192,6 +192,13 @@ lead=false, если:
                 }
             ],
             format="json"
+        )
+
+        elapsed = time.perf_counter() - start_time
+
+        print(
+            f"⏱️ ИИ ответил за {elapsed:.2f} сек.",
+            flush=True
         )
 
         raw = response["message"]["content"]

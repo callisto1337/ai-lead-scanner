@@ -81,6 +81,12 @@ async def handler(event):
         )
         return
 
+    if len(clean_text) < 20:
+        print(
+            "❌ Сообщение слишком короткое",
+        )
+        return
+
     result = is_lead(clean_text)
 
 
@@ -126,9 +132,9 @@ async def handler(event):
                 flush=True
             )
     else:
-        print("💬 Нерелевантное сообщение:", text, flush=True)
+        print("❌ Нерелевантное сообщение", flush=True)
 
-    print("🤖Объяснение:", result.get("description", "Нет объяснения"), flush=True)
+    print("🤖 Объяснение:", result.get("description", "Нет объяснения"), flush=True)
     print("---------------", flush=True)
 
 
