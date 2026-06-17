@@ -20,7 +20,7 @@ def load_memory():
 def save_memory(item):
     memory = load_memory()
     memory.append(item)
-    memory = memory[-200:]
+    memory = memory[-100:]
 
     MEMORY_PATH.write_text(
         json.dumps(

@@ -53,29 +53,36 @@ def format_config_list(items, fallback="Не указано"):
     )
 
 
-def build_memory_examples(limit=30):
+def build_memory_examples(limit=10):
     memory = load_memory()
 
     if not memory:
         return "Пока нет примеров обратной связи."
 
+    bad_examples = [
+        item for item in memory
+        if item.get("feedback") in ("bad", "spam") or item.get("lead") is False
+    ]
+
+    good_examples = [
+        item for item in memory
+        if item.get("feedback") == "good" or item.get("lead") is True
+    ]
+
+    selected = bad_examples[-5:] + good_examples[-5:]
+    selected = selected[-limit:]
+
     examples = []
 
-    for item in memory[-limit:]:
+    for item in selected:
         lead_value = "true" if item.get("lead") else "false"
+        text = normalize(item.get("text", ""))[:250]
 
         examples.append(
-            f"""
-Сообщение:
-{item.get("text", "")}
-
-Правильная оценка:
-lead={lead_value}
-feedback={item.get("feedback", "unknown")}
-"""
+            f'- "{text}" => lead={lead_value}'
         )
 
-    return "\n---\n".join(examples)
+    return "\n".join(examples)
 
 
 def is_lead(text):
@@ -115,8 +122,8 @@ def is_lead(text):
 Они помогают понять тему, но сами по себе не делают сообщение лидом.
 {keywords_text}
 
-ПАМЯТЬ С ОЦЕНКАМИ ЧЕЛОВЕКА:
-Используй как дополнительный ориентир, но решение принимай по смыслу.
+ПРИМЕРЫ ОЦЕНКИ:
+Используй как ориентир. Особенно учитывай примеры lead=false.
 {memory_examples}
 
 КРИТЕРИИ ЛИДА:
