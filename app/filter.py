@@ -2,44 +2,11 @@ import ollama
 from pathlib import Path
 import time
 from memory import load_memory
-from utils import normalize, extract_json
-
+from utils import normalize, extract_json, load_lines, load_text
 
 BASE_DIR = Path(__file__).parent.parent
 
-
-# ---------------- CONFIG ----------------
-
-# ---------------- FILTER ----------------
-
-def load_lines(filename):
-    path = BASE_DIR / "config" / filename
-
-    if not path.exists():
-        return []
-
-    return [
-        line.strip()
-        for line in path.read_text(
-            encoding="utf-8"
-        ).splitlines()
-        if line.strip()
-    ]
-
-
-def load_text(filename):
-    path = BASE_DIR / "config" / filename
-
-    if not path.exists():
-        return ""
-
-    return path.read_text(
-        encoding="utf-8"
-    ).strip()
-
-
 KEYWORDS = load_lines("keywords.txt")
-STOPWORDS_LIST = load_lines("stopwords.txt")
 ABOUT = load_text("about.txt")
 
 
@@ -86,19 +53,6 @@ def build_memory_examples(limit=10):
 
 
 def is_lead(text):
-
-    text_lower = normalize(text)
-
-    # быстрый стоп
-
-    for word in STOPWORDS_LIST:
-        if normalize(word) in text_lower:
-            return {
-                "lead": False,
-                "text": text,
-                "description": f"🚫 Сообщение отфильтровано стоп-словом: {word}"
-            }
-
 
     memory_examples = build_memory_examples()
 

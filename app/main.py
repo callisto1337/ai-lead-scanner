@@ -1,6 +1,6 @@
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
-from utils import has_link, is_duplicate
+from prefiter import prefilter_message
 from filter import is_lead
 from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv
@@ -76,29 +76,10 @@ async def handler(event):
 
     print("💬 Новое сообщение:", short_text, flush=True)
 
-    if is_duplicate(text):
-        print("❌ Спам")
-        print("---------------", flush=True)
-        return
+    prefilter_result = prefilter_message(clean_text)
 
-    if len(clean_text) > 1000:
-        print(
-            "❌ Сообщение слишком длинное",
-        )
-        print("---------------", flush=True)
-        return
-
-    if len(clean_text) < 20:
-        print(
-            "❌ Сообщение слишком короткое",
-        )
-        print("---------------", flush=True)
-        return
-
-    if has_link(text):
-        print(
-            "❌ В сообщении есть ссылки",
-        )
+    if not prefilter_result["ok"]:
+        print(f"❌ {prefilter_result['reason']}", flush=True)
         print("---------------", flush=True)
         return
 

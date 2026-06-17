@@ -7,7 +7,6 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 async def build_tg_link(event):
-
     chat = await event.get_chat()
     message_id = event.message.id
 
@@ -49,32 +48,26 @@ def is_duplicate(text):
     except:
         data = []
 
-
     msg_hash = get_hash(text)
 
     now = datetime.now()
 
-
     for item in data:
         if item["hash"] == msg_hash:
             return True
-
 
     data.append({
         "hash": msg_hash,
         "time": str(now)
     })
 
-
     # храним последние 5000
     data = data[-5000:]
-
 
     path.write_text(
         json.dumps(data, ensure_ascii=False),
         encoding="utf-8"
     )
-
 
     return False
 
@@ -100,3 +93,29 @@ def extract_json(text):
     except Exception as e:
         print("❌ JSON extract error:", e)
         return None
+
+
+def load_lines(filename):
+    path = BASE_DIR / "config" / filename
+
+    if not path.exists():
+        return []
+
+    return [
+        line.strip()
+        for line in path.read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+
+def load_text(filename):
+    path = BASE_DIR / "config" / filename
+
+    if not path.exists():
+        return ""
+
+    return path.read_text(
+        encoding="utf-8"
+    ).strip()
