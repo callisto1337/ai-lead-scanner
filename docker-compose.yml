@@ -3,6 +3,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: lead-scanner-ollama
+
     restart: always
 
     volumes:
@@ -12,55 +13,36 @@ services:
       - "11434:11434"
 
 
-  ollama-pull:
-    image: ollama/ollama:latest
-    container_name: lead-scanner-ollama-pull
+  monitor:
+    build: .
+
+    container_name: lead-scanner-monitor
+
+    command: python ./app/main.py
+
     restart: "no"
 
     depends_on:
       - ollama
 
-    environment:
-      - OLLAMA_HOST=http://ollama:11434
-
-    entrypoint: >
-      sh -c "
-      until ollama list > /dev/null 2>&1;
-      do
-        echo '⏳ Waiting for Ollama...';
-        sleep 2;
-      done;
-      echo '📦 Pulling model qwen2.5:7b...';
-      ollama pull qwen2.5:7b;
-      echo '✅ Model is ready';
-      "
-
-
-  monitor:
-    build: .
-    container_name: lead-scanner-monitor
-    command: python ./app/main.py
-    restart: always
-
-    depends_on:
-      ollama-pull:
-        condition: service_completed_successfully
-
     env_file:
       - .env
 
     environment:
-      - OLLAMA_HOST=http://ollama:11434
+      OLLAMA_HOST: http://ollama:11434
 
     volumes:
       - ./config:/app/config
-      - monitor-sessions:/app/sessions
+      - ./sessions:/app/sessions
 
 
   bot:
     build: .
+
     container_name: lead-scanner-bot
+
     command: python ./app/bot.py
+
     restart: always
 
     env_file:
@@ -72,4 +54,3 @@ services:
 
 volumes:
   ollama-data:
-  monitor-sessions:

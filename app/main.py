@@ -1,4 +1,5 @@
 from telethon import TelegramClient, events
+from telethon.errors import FloodWaitError
 from filter import is_lead
 from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv
@@ -6,6 +7,7 @@ from pathlib import Path
 import os
 import html
 import sys
+import time
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SESSIONS_DIR = BASE_DIR / "sessions"
@@ -136,9 +138,40 @@ try:
     print("🖥️ Мониторинг запущен", flush=True)
     sys.stdout.flush()
     client.run_until_disconnected()
+
+except FloodWaitError as e:
+    wait_seconds = int(getattr(e, "seconds", 3600))
+    wait_hours = round(wait_seconds / 3600, 2)
+
+    print(
+        f"⏳ Telegram ограничил повторные попытки. FloodWait: {wait_seconds} секунд "
+        f"≈ {wait_hours} часов.",
+        flush=True
+    )
+    print(
+        "🛑 Контейнер будет остановлен без немедленного перезапуска.",
+        flush=True
+    )
+
+    sys.stderr.flush()
+    time.sleep(min(wait_seconds, 3600))
+    sys.exit(1)
+
+except KeyboardInterrupt:
+    print("🛑 Остановка мониторинга пользователем", flush=True)
+    sys.exit(0)
+
 except Exception as e:
     print(f"❌ Ошибка: {e}", flush=True)
     sys.stderr.flush()
+
     import traceback
     traceback.print_exc()
+
+    print(
+        "⏸️ Пауза 10 минут перед завершением, чтобы Docker не устроил быстрый цикл перезапусков.",
+        flush=True
+    )
+    time.sleep(600)
+
     sys.exit(1)

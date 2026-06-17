@@ -1,6 +1,6 @@
 .idea/
 .env
 sessions/lead_monitor.session
-sessions/
+./sessions.session
 lead_monitor.session-journal
 /config/memory.json
