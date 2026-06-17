@@ -4,6 +4,7 @@ from filter import is_lead
 from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv
 from pathlib import Path
+from utils import build_tg_link
 import os
 import html
 import sys
@@ -42,26 +43,6 @@ def load_blacklist():
         if line.strip()
     }
 
-async def build_tg_link(event):
-
-    chat = await event.get_chat()
-    message_id = event.message.id
-
-    username = getattr(chat, "username", None)
-
-    if username:
-        return f"https://t.me/{username}/{message_id}"
-
-    chat_id = str(event.chat_id)
-
-    # приватные супергруппы / каналы
-    if chat_id.startswith("-100"):
-        internal_id = chat_id[4:]
-        return f"https://t.me/c/{internal_id}/{message_id}"
-
-    return "Нет публичной ссылки"
-
-
 
 @client.on(events.NewMessage())
 async def handler(event):
@@ -86,6 +67,8 @@ async def handler(event):
         return
 
     text = event.message.text
+
+    print("💬 Новое сообщение:", text, flush=True)
 
     if not text:
         return
@@ -116,7 +99,6 @@ async def handler(event):
 
     if result["lead"]:
         print("🔥 Найден лид", flush=True)
-        print("💬 Сообщение:", text, flush=True)
 
         result["link"] = await build_tg_link(event)
 
