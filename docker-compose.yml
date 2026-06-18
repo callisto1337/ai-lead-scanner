@@ -52,5 +52,34 @@ services:
       - ./config:/app/config
 
 
+  prometheus:
+    image: prom/prometheus
+    container_name: lead-scanner-prometheus
+    restart: always
+
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+    ports:
+      - "9090:9090"
+
+
+  grafana:
+    image: grafana/grafana
+    container_name: lead-scanner-grafana
+    restart: always
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+    depends_on:
+      - prometheus
+
+
 volumes:
   ollama-data:
+  monitor-sessions:
+  grafana-data:

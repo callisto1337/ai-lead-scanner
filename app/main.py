@@ -6,6 +6,14 @@ from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv
 from pathlib import Path
 from utils import build_tg_link
+from metrics import (
+    start_metrics,
+    message_received,
+    spam_detected,
+    lead_detected,
+    ai_request,
+    AI_TIME
+)
 import os
 import html
 import sys
@@ -76,14 +84,20 @@ async def handler(event):
 
     print("💬 Новое сообщение:", short_text, flush=True)
 
+    message_received()
     prefilter_result = prefilter_message(clean_text)
 
     if not prefilter_result["ok"]:
+        spam_detected()
+
         print(f"❌ {prefilter_result['reason']}", flush=True)
         print("---------------", flush=True)
         return
 
-    result = is_lead(clean_text)
+    ai_request()
+
+    with AI_TIME.time():
+        result = is_lead(clean_text)
 
 
     if not result:
@@ -109,6 +123,7 @@ async def handler(event):
     if result["lead"]:
         print("🔥 Найден лид", flush=True)
 
+        lead_detected()
         result["link"] = await build_tg_link(event)
 
         try:
@@ -137,8 +152,10 @@ async def handler(event):
 print("🚀 Запуск мониторинга...", flush=True)
 sys.stdout.flush()
 
+start_metrics()
+
 try:
-    client.start()
+    client.start() # TODO не должно быть здесь
     print("🖥️ Мониторинг запущен", flush=True)
     sys.stdout.flush()
     client.run_until_disconnected()
