@@ -4,7 +4,6 @@ from prefilter import prefilter_message
 from filter import is_lead
 from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv
-from pathlib import Path
 from utils import build_tg_link
 from metrics import (
     start_metrics,
@@ -14,27 +13,17 @@ from metrics import (
     ai_request,
     AI_TIME
 )
-import os
+from settings import SESSIONS_DIR, API_ID, API_HASH, BASE_DIR
 import html
 import sys
 import time
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-SESSIONS_DIR = BASE_DIR / "sessions"
-SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-
-
 load_dotenv()
-
-
-api_id = int(os.getenv("API_ID"))
-api_hash = str(os.getenv("API_HASH"))
-
 
 client = TelegramClient(
     str(SESSIONS_DIR / "lead_monitor"),
-    api_id,
-    api_hash
+    API_ID,
+    API_HASH
 )
 
 

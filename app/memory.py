@@ -1,7 +1,6 @@
-from pathlib import Path
 import json
+from settings import BASE_DIR
 
-BASE_DIR = Path(__file__).parent.parent
 MEMORY_PATH = BASE_DIR / "config" / "memory.json"
 
 def memory_path():

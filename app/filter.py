@@ -1,10 +1,8 @@
 import ollama
-from pathlib import Path
 import time
 from memory import load_memory
 from utils import normalize, extract_json, load_lines, load_text
 
-BASE_DIR = Path(__file__).parent.parent
 
 KEYWORDS = load_lines("keywords.txt")
 ABOUT = load_text("about.txt")

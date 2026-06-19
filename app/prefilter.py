@@ -1,7 +1,5 @@
-from pathlib import Path
 from utils import has_link, is_duplicate, normalize, load_lines
 
-BASE_DIR = Path(__file__).resolve().parent.parent
 STOPWORDS_LIST = load_lines("stopwords.txt")
 
 

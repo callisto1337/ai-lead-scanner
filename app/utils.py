@@ -2,9 +2,8 @@ import json
 import re
 import hashlib
 from datetime import datetime
-from pathlib import Path
+from settings import BASE_DIR
 
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 async def build_tg_link(event):
     chat = await event.get_chat()

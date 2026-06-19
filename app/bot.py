@@ -10,11 +10,9 @@ from telegram.ext import (
     Application,
     CallbackQueryHandler, ContextTypes,
 )
-
 from dotenv import load_dotenv
+from settings import BOT_TOKEN, BASE_DIR, LEADS_CHAT_ID
 
-from pathlib import Path
-import os
 import json
 import uuid
 import html
@@ -24,12 +22,6 @@ from memory import save_memory
 
 
 load_dotenv()
-
-
-BOT_TOKEN = str(os.getenv("BOT_TOKEN"))
-LEADS_CHAT_ID = int(os.getenv("LEADS_CHAT_ID"))
-BASE_DIR = Path(__file__).resolve().parent.parent
-
 request = HTTPXRequest(
     connect_timeout=30,
     read_timeout=30,
