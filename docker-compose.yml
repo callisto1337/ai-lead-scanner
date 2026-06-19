@@ -59,6 +59,7 @@ services:
 
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
 
     ports:
       - "9090:9090"
@@ -107,5 +108,5 @@ services:
 
 volumes:
   ollama-data:
-  monitor-sessions:
   grafana-data:
+  prometheus-data:
