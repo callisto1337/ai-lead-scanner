@@ -176,7 +176,7 @@ except FloodWaitError as e:
 
     sys.stderr.flush()
     time.sleep(min(wait_seconds, 3600))
-    sys.exit(1)
+    sys.exit(0)
 
 except KeyboardInterrupt:
     print("🛑 Остановка мониторинга пользователем", flush=True)
@@ -190,9 +190,9 @@ except Exception as e:
     traceback.print_exc()
 
     print(
-        "⏸️ Пауза 10 минут перед завершением, чтобы Docker не устроил быстрый цикл перезапусков.",
+        "⏸️ Пауза 5 минут перед завершением",
         flush=True
     )
-    time.sleep(600)
+    time.sleep(300)
 
     sys.exit(1)

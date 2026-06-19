@@ -20,7 +20,7 @@ services:
 
     command: python ./app/main.py
 
-    restart: "no"
+    restart: on-failure:3
 
     depends_on:
       - ollama
@@ -88,6 +88,9 @@ services:
     ports:
       - "3100:3100"
 
+    volumes:
+      - loki-data:/loki
+
 
   promtail:
     image: grafana/promtail:latest
@@ -98,6 +101,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - ./promtail.yml:/etc/promtail/config.yml
+      - promtail-data:/tmp
 
     command:
       - -config.file=/etc/promtail/config.yml
@@ -110,3 +114,5 @@ volumes:
   ollama-data:
   grafana-data:
   prometheus-data:
+  loki-data:
+  promtail-data:
