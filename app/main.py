@@ -5,8 +5,8 @@ from filter import is_lead
 from bot import send_to_leads, LEADS_CHAT_ID
 from dotenv import load_dotenv
 from utils import build_tg_link
+from lifecycle import run_monitor
 from metrics import (
-    start_metrics,
     message_received,
     spam_detected,
     lead_detected,
@@ -138,50 +138,4 @@ async def handler(event):
     print("---------------", flush=True)
 
 
-print("🚀 Запуск мониторинга...", flush=True)
-sys.stdout.flush()
-
-start_metrics()
-
-try:
-    client.start() # TODO не должно быть здесь
-    print("🖥️ Мониторинг запущен", flush=True)
-    sys.stdout.flush()
-    client.run_until_disconnected()
-
-except FloodWaitError as e:
-    wait_seconds = int(getattr(e, "seconds", 3600))
-    wait_hours = round(wait_seconds / 3600, 2)
-
-    print(
-        f"⏳ Telegram ограничил повторные попытки. FloodWait: {wait_seconds} секунд "
-        f"≈ {wait_hours} часов.",
-        flush=True
-    )
-    print(
-        "🛑 Контейнер будет остановлен без немедленного перезапуска.",
-        flush=True
-    )
-
-    sys.stderr.flush()
-    time.sleep(min(wait_seconds, 3600))
-    sys.exit(0)
-
-except KeyboardInterrupt:
-    print("🛑 Остановка мониторинга пользователем", flush=True)
-    sys.exit(0)
-
-except Exception as e:
-    print(f"❌ Ошибка: {e}", flush=True)
-    sys.stderr.flush()
-
-    import traceback
-    traceback.print_exc()
-
-    print(
-        "⏸️ Пауза 5 минут перед завершением",
-        flush=True
-    )
-    time.sleep(300)
-
-    sys.exit(1)
+run_monitor(client)
