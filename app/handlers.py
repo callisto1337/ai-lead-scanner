@@ -1,38 +1,16 @@
 from telethon import events
-from prefilter import prefilter_message
-from filter import is_lead
+from metrics import lead_detected
 from bot import send_to_leads, LEADS_CHAT_ID
 from utils import build_tg_link
-from metrics import (
-    message_received,
-    spam_detected,
-    lead_detected,
-    ai_request,
-    AI_TIME
-)
-from settings import BASE_DIR
-import html
+from blacklist import is_blacklisted
+from sender_utils import enrich_sender_info
+from lead_processor import process_message
 
 
 def register_handlers(client):
     @client.on(events.NewMessage())
     async def handler(event):
         await handle_new_message(event)
-
-
-def load_blacklist():
-    path = BASE_DIR / "config" / "blacklist.txt"
-
-    if not path.exists():
-        return set()
-
-    return {
-        line.strip()
-        for line in path.read_text(
-            encoding="utf-8"
-        ).splitlines()
-        if line.strip()
-    }
 
 
 async def handle_new_message(event):
@@ -47,7 +25,7 @@ async def handle_new_message(event):
     if sender and getattr(sender, "bot", False):
         return
 
-    if sender and str(sender.id) in load_blacklist():
+    if sender and is_blacklisted(sender.id):
         print(
             "⛔ BLACKLIST USER:",
             sender.id,
@@ -64,20 +42,11 @@ async def handle_new_message(event):
 
     print("💬 Новое сообщение:", short_text, flush=True)
 
-    message_received()
-    prefilter_result = prefilter_message(clean_text)
+    result = process_message(clean_text)
 
-    if not prefilter_result["ok"]:
-        spam_detected()
-
-        print(f"❌ {prefilter_result['reason']}", flush=True)
+    if not result:
         print("---------------", flush=True)
         return
-
-    ai_request()
-
-    with AI_TIME.time():
-        result = is_lead(clean_text)
 
     if not result:
         return
@@ -111,20 +80,3 @@ async def handle_new_message(event):
 
     print("🤖 Объяснение:", result.get("description", "Нет объяснения"), flush=True)
     print("---------------", flush=True)
-
-
-def enrich_sender_info(result, sender):
-    if sender:
-        result["user_id"] = sender.id
-
-        if sender.username:
-            username = html.escape(sender.username)
-            user_link = f'<a href="https://t.me/{username}">@{username}</a>'
-        else:
-            user_link = f"ID: {sender.id}"
-
-    else:
-        result["user_id"] = None
-        user_link = "нет ссылки"
-
-    result["user_link"] = user_link
