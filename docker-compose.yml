@@ -79,6 +79,32 @@ services:
       - prometheus
 
 
+  loki:
+    image: grafana/loki:latest
+    container_name: lead-scanner-loki
+    restart: always
+
+    ports:
+      - "3100:3100"
+
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: lead-scanner-promtail
+    restart: always
+
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail.yml:/etc/promtail/config.yml
+
+    command:
+      - -config.file=/etc/promtail/config.yml
+
+    depends_on:
+      - loki
+
+
 volumes:
   ollama-data:
   monitor-sessions:
