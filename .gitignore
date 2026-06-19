@@ -5,3 +5,4 @@ sessions/lead_monitor.session
 lead_monitor.session-journal
 /config/memory.json
 /config/seen_messages.json
+/config/pending_leads.json

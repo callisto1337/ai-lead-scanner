@@ -39,8 +39,24 @@ def get_hash(text):
     return hashlib.md5(text.encode()).hexdigest()
 
 
+def seen_messages_path():
+    return BASE_DIR / "config" / "seen_messages.json"
+
+
+def ensure_seen_messages_storage():
+    path = seen_messages_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not path.exists():
+        path.write_text(
+            "[]",
+            encoding="utf-8"
+        )
+
+
 def is_duplicate(text):
-    path = BASE_DIR / "config" / "seen_messages.json"
+    path = seen_messages_path()
+    ensure_seen_messages_storage()
 
     try:
         data = json.loads(path.read_text(encoding="utf-8"))

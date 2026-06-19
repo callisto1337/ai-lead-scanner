@@ -42,6 +42,17 @@ def pending_path():
     return BASE_DIR / "config" / "pending_leads.json"
 
 
+def ensure_pending_storage():
+    path = pending_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not path.exists():
+        path.write_text(
+            "{}",
+            encoding="utf-8"
+        )
+
+
 
 def blacklist_path():
     return BASE_DIR / "config" / "blacklist.txt"
@@ -88,6 +99,8 @@ def add_to_blacklist(value):
 
 def save_pending_lead(lead_id, data):
 
+    ensure_pending_storage()
+
     path = pending_path()
 
     try:
@@ -113,6 +126,8 @@ def save_pending_lead(lead_id, data):
 
 
 def load_pending_leads():
+
+    ensure_pending_storage()
 
     try:
         return json.loads(
