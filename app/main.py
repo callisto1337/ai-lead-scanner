@@ -55,7 +55,7 @@ async def handler(event):
         )
         return
 
-    text = event.message.text
+    text = event.message.text or ""
     clean_text = text.strip()
     short_text = clean_text[:100] + "..." if len(clean_text) > 100 else clean_text
 
@@ -79,13 +79,11 @@ async def handler(event):
     with AI_TIME.time():
         result = is_lead(clean_text)
 
-
     if not result:
         return
 
 
     if sender:
-
         result["user_id"] = sender.id
 
         if sender.username:
@@ -129,4 +127,5 @@ async def handler(event):
     print("---------------", flush=True)
 
 
-run_monitor(client)
+if __name__ == "__main__":
+    run_monitor(client)
