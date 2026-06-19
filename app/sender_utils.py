@@ -1,3 +1,5 @@
+import html
+
 def enrich_sender_info(result: dict, sender) -> None:
     if sender:
         result["user_id"] = sender.id
