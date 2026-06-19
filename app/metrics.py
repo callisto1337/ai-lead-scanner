@@ -44,7 +44,7 @@ def start_metrics():
     Запускает HTTP сервер Prometheus
     """
     start_http_server(8000)
-    print("📊 Metrics started on :8000")
+    print("📊 Запуск сбора метрик")
 
 
 def message_received():
