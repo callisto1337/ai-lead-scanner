@@ -1,9 +1,7 @@
-from telethon import TelegramClient, events
-from telethon.errors import FloodWaitError
+from telethon import events
 from prefilter import prefilter_message
 from filter import is_lead
 from bot import send_to_leads, LEADS_CHAT_ID
-from dotenv import load_dotenv
 from utils import build_tg_link
 from lifecycle import run_monitor
 from metrics import (
@@ -13,18 +11,11 @@ from metrics import (
     ai_request,
     AI_TIME
 )
-from settings import SESSIONS_DIR, API_ID, API_HASH, BASE_DIR
+from settings import BASE_DIR
+from telegram_client import create_client
 import html
-import sys
-import time
 
-load_dotenv()
-
-client = TelegramClient(
-    str(SESSIONS_DIR / "lead_monitor"),
-    API_ID,
-    API_HASH
-)
+client = create_client()
 
 
 def load_blacklist():
