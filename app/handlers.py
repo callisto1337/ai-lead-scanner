@@ -1,5 +1,4 @@
 from telethon import events
-from metrics import lead_detected
 from bot import send_to_leads, LEADS_CHAT_ID
 from utils import build_tg_link
 from blacklist import is_blacklisted
@@ -48,15 +47,17 @@ async def handle_new_message(event):
         print("---------------", flush=True)
         return
 
-    if not result:
-        return
-
     enrich_sender_info(result, sender)
 
     if result["lead"]:
         print("🔥 Найден лид", flush=True)
+    else:
+        print("❌ Нерелевантное сообщение", flush=True)
 
-        lead_detected()
+    print("🤖 Объяснение:", result.get("description", "Нет объяснения"), flush=True)
+    print("---------------", flush=True)
+
+    if result["lead"]:
         result["link"] = await build_tg_link(event)
 
         try:
@@ -75,8 +76,3 @@ async def handle_new_message(event):
                 f"❌ Ошибка при отправке лида: {e}",
                 flush=True
             )
-    else:
-        print("❌ Нерелевантное сообщение", flush=True)
-
-    print("🤖 Объяснение:", result.get("description", "Нет объяснения"), flush=True)
-    print("---------------", flush=True)
