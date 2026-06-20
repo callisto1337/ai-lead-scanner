@@ -1,8 +1,14 @@
 import json
 import re
 import hashlib
+import unicodedata
 from datetime import datetime
-from settings import BASE_DIR
+from settings import BASE_DIR, CHAR_REPLACEMENTS_FILE
+
+
+INVISIBLE_CHARS_PATTERN = re.compile(
+    r"[\u200b\u200c\u200d\u2060\ufeff\u00ad]"
+)
 
 
 async def build_tg_link(event):
@@ -32,6 +38,42 @@ def has_link(text):
             re.IGNORECASE
         )
     )
+
+
+def load_char_replacements():
+    path = BASE_DIR / "config" / CHAR_REPLACEMENTS_FILE
+
+    if not path.exists():
+        return {}
+
+    replacements = {}
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+
+        if not line or line.startswith("#"):
+            continue
+
+        if "=" not in line:
+            continue
+
+        source, target = line.split("=", 1)
+        source = source.strip()
+        target = target.strip()
+
+        if source:
+            replacements[source] = target
+
+    return replacements
+
+
+def apply_char_replacements(text):
+    CHAR_REPLACEMENTS = load_char_replacements()
+
+    for source, target in CHAR_REPLACEMENTS.items():
+        text = text.replace(source, target)
+
+    return text
 
 
 def get_hash(text):
@@ -88,7 +130,13 @@ def is_duplicate(text):
 
 
 def normalize(text):
-    return re.sub(r"\s+", " ", text.lower()).strip()
+    text = unicodedata.normalize("NFKC", text)
+    text = INVISIBLE_CHARS_PATTERN.sub("", text)
+    text = apply_char_replacements(text)
+    text = text.lower()
+    text = re.sub(r"\s+", " ", text)
+
+    return text.strip()
 
 
 def extract_json(text):
