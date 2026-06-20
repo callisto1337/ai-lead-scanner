@@ -2,8 +2,15 @@ import json
 import re
 import hashlib
 import unicodedata
+from difflib import SequenceMatcher
 from datetime import datetime
-from settings import BASE_DIR, CHAR_REPLACEMENTS_FILE
+from settings import (
+    BASE_DIR,
+    CHAR_REPLACEMENTS_FILE,
+    DUPLICATE_SIMILARITY_THRESHOLD,
+    DUPLICATE_COMPARE_LIMIT,
+    SEEN_MESSAGES_PATH
+)
 
 
 INVISIBLE_CHARS_PATTERN = re.compile(
@@ -81,12 +88,24 @@ def get_hash(text):
     return hashlib.md5(text.encode()).hexdigest()
 
 
-def seen_messages_path():
-    return BASE_DIR / "config" / "seen_messages.json"
+def is_similar_text(first, second):
+    if not first or not second:
+        return False
+
+    if min(len(first), len(second)) < 20:
+        return False
+
+    ratio = SequenceMatcher(
+        None,
+        first,
+        second
+    ).ratio()
+
+    return ratio >= DUPLICATE_SIMILARITY_THRESHOLD
 
 
 def ensure_seen_messages_storage():
-    path = seen_messages_path()
+    path = SEEN_MESSAGES_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
 
     if not path.exists():
@@ -97,7 +116,7 @@ def ensure_seen_messages_storage():
 
 
 def is_duplicate(text):
-    path = seen_messages_path()
+    path = SEEN_MESSAGES_PATH
     ensure_seen_messages_storage()
 
     try:
@@ -105,6 +124,7 @@ def is_duplicate(text):
     except:
         data = []
 
+    normalized_text = normalize(text)
     msg_hash = get_hash(text)
 
     now = datetime.now()
@@ -113,9 +133,18 @@ def is_duplicate(text):
         if item["hash"] == msg_hash:
             return True
 
+    recent_items = data[-DUPLICATE_COMPARE_LIMIT:]
+
+    for item in recent_items:
+        previous_text = item.get("text", "")
+
+        if is_similar_text(normalized_text, previous_text):
+            return True
+
     data.append({
         "hash": msg_hash,
-        "time": str(now)
+        "time": str(now),
+        "text": normalized_text,
     })
 
     # храним последние 5000

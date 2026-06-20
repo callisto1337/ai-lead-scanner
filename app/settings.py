@@ -17,4 +17,12 @@ BOT_TOKEN = str(os.getenv("BOT_TOKEN"))
 LEADS_CHAT_ID = int(os.getenv("LEADS_CHAT_ID"))
 
 CHAR_REPLACEMENTS_FILE = CONFIG_DIR / "char_replacements.txt"
+SEEN_MESSAGES_PATH = CONFIG_DIR / "seen_messages.json"
+
+DUPLICATE_SIMILARITY_THRESHOLD = float(
+    os.getenv("DUPLICATE_SIMILARITY_THRESHOLD", "0.9")
+)
+DUPLICATE_COMPARE_LIMIT = int(
+    os.getenv("DUPLICATE_COMPARE_LIMIT", "300")
+)
 
