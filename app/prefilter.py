@@ -45,9 +45,6 @@ def prefilter_message(text):
     if len(clean_text) < 20:
         return reject("Сообщение слишком короткое")
 
-    if has_link(clean_text):
-        return reject("В сообщении есть ссылки")
-
     stopword = has_stopword(clean_text)
 
     if stopword:
