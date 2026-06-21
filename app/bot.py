@@ -13,7 +13,7 @@ from telegram.ext import (
 from dotenv import load_dotenv
 
 from metrics import lead_approved, lead_rejected, lead_skipped, lead_blocked
-from settings import BOT_TOKEN, BASE_DIR, GROUP_ID, LEADS_GROUP_ID, METRICS_TOPIC_ID
+from settings import BOT_TOKEN, BASE_DIR, GROUP_ID, METRICS_TOPIC_ID
 
 import json
 import uuid

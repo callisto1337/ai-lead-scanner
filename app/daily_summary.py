@@ -5,8 +5,8 @@ from telegram import Bot
 from settings import (
     PROMETHEUS_URL,
     BOT_TOKEN,
+    GROUP_ID,
     METRICS_TOPIC_ID,
-    LEADS_TOPIC_ID
 )
 
 PROM_QUERY_TEMPLATE = 'increase({metric}[24h])'
@@ -61,7 +61,7 @@ def build_summary() -> dict:
     return data
 
 
-async def send_summary_message(chat_id: int):
+async def send_summary_message():
     stats = build_summary()
     text = (
         f"📋 Сводка за последние 24 часа (МСК)\n\n"
@@ -81,7 +81,7 @@ async def send_summary_message(chat_id: int):
     for attempt in range(3):
         try:
             await bot.send_message(
-                chat_id=chat_id,
+                chat_id=GROUP_ID,
                 text=text,
                 message_thread_id=METRICS_TOPIC_ID,
             )
@@ -92,6 +92,6 @@ async def send_summary_message(chat_id: int):
 
 async def job(context):
     try:
-        await send_summary_message(LEADS_TOPIC_ID)
+        await send_summary_message()
     except Exception as e:
         print(f"Ошибка при отправке ежедневной сводки: {e}", flush=True)

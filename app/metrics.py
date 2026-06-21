@@ -34,7 +34,7 @@ LEADS_APPROVED = Counter(
 
 
 LEADS_REJECTED = Counter(
-    "leads_approved_total",
+    "leads_rejected_total",
     "Rejected leads by human"
 )
 
