@@ -10,6 +10,7 @@ from settings import (
     DUPLICATE_COMPARE_LIMIT,
     SEEN_MESSAGES_PATH
 )
+from datetime import datetime
 
 
 INVISIBLE_CHARS_PATTERN = re.compile(
@@ -112,6 +113,54 @@ def ensure_seen_messages_storage():
             "[]",
             encoding="utf-8"
         )
+
+
+def is_duplicate(text):
+    """Проверяет, был ли уже похожий/тот же текст. Если да — возвращает True и не добавляет запись.
+    Иначе сохраняет информацию об увиденном сообщении и возвращает False.
+    """
+    path = SEEN_MESSAGES_PATH
+    ensure_seen_messages_storage()
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        data = []
+
+    normalized_text = normalize(text)
+    msg_hash = get_hash(text)
+
+    # точное совпадение по хэшу
+    for item in data:
+        if item.get("hash") == msg_hash:
+            return True
+
+    # похожие по содержанию среди последних записей
+    recent_items = data[-DUPLICATE_COMPARE_LIMIT:]
+
+    for item in recent_items:
+        previous_text = item.get("text", "")
+        if is_similar_text(normalized_text, previous_text):
+            return True
+
+    # сохранить запись о увиденном сообщении
+    now = datetime.now()
+
+    data.append({
+        "hash": msg_hash,
+        "time": str(now),
+        "text": normalized_text,
+    })
+
+    # храним последние 5000
+    data = data[-5000:]
+
+    path.write_text(
+        json.dumps(data, ensure_ascii=False),
+        encoding="utf-8"
+    )
+
+    return False
 
 
 def is_duplicate_but_not_previously_lead(text) -> bool:

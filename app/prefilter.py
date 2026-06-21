@@ -1,4 +1,4 @@
-from utils import normalize, load_lines, is_duplicate_but_not_previously_lead
+from utils import normalize, load_lines, is_duplicate, is_duplicate_but_not_previously_lead
 
 STOPWORDS_LIST = load_lines("stopwords.txt")
 
@@ -36,9 +36,11 @@ def prefilter_message(text):
     if not clean_text:
         return reject("Пустое сообщение")
 
-    # Если это дубликат, но похожие сообщения ранее были отмечены как лиды — не отклоняем
-    if is_duplicate_but_not_previously_lead(clean_text):
-        return reject("Спам / дубль сообщения")
+    # Сначала проверяем/сохраняем увиденное сообщение
+    if is_duplicate(clean_text):
+        # Если это дубликат — решаем, считать ли его спамом с учётом памяти о лидах
+        if is_duplicate_but_not_previously_lead(clean_text):
+            return reject("Спам / дубль сообщения")
 
     if len(clean_text) > 1000:
         return reject("Сообщение слишком длинное")
