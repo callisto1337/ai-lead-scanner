@@ -1,5 +1,7 @@
 from telethon import events
-from bot import send_to_leads, LEADS_CHAT_ID
+
+from settings import GROUP_ID
+from bot import send_to_leads
 from utils import build_tg_link
 from blacklist import is_blacklisted
 from sender_utils import enrich_sender_info
@@ -16,7 +18,7 @@ async def handle_new_message(event):
     if event.out:
         return
 
-    if event.chat_id == LEADS_CHAT_ID:
+    if event.chat_id == GROUP_ID:
         return
 
     sender = await event.get_sender()

@@ -11,7 +11,9 @@ from telegram.ext import (
     CallbackQueryHandler, ContextTypes,
 )
 from dotenv import load_dotenv
-from settings import BOT_TOKEN, BASE_DIR, LEADS_CHAT_ID
+
+from metrics import lead_approved, lead_rejected, lead_skipped, lead_blocked
+from settings import BOT_TOKEN, BASE_DIR, GROUP_ID, LEADS_GROUP_ID, METRICS_TOPIC_ID
 
 import json
 import uuid
@@ -198,8 +200,9 @@ async def send_to_leads(result):
     for attempt in range(3):
         try:
             await bot.send_message(
-                chat_id=LEADS_CHAT_ID,
+                chat_id=GROUP_ID,
                 text=message,
+                message_thread_id=METRICS_TOPIC_ID,
                 reply_markup=InlineKeyboardMarkup(
                     keyboard
                 ),
@@ -286,11 +289,15 @@ async def button_handler(
         feedback = "good"
         is_lead = True
 
+        lead_approved()
+
     elif action == "bad":
 
         rating_text = "👎 Оценка: плохой лид"
         feedback = "bad"
         is_lead = False
+
+        lead_rejected()
 
     elif action == "spam":
 
@@ -298,6 +305,9 @@ async def button_handler(
         feedback = "spam"
         is_lead = False
 
+        lead_blocked(
+            lead.get("user_id")
+        )
         add_to_blacklist(
             lead.get("user_id")
         )
@@ -307,6 +317,8 @@ async def button_handler(
         rating_text = "⏭️ Оценка: пропущено"
         feedback = "skip"
         is_lead = None
+
+        lead_skipped()
 
     else:
 

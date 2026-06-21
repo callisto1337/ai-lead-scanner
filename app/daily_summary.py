@@ -1,11 +1,13 @@
 import asyncio
-from datetime import datetime, timezone, timedelta
-
 import httpx
+from datetime import datetime, timezone, timedelta
 from telegram import Bot
-
-from settings import PROMETHEUS_URL, BOT_TOKEN
-
+from settings import (
+    PROMETHEUS_URL,
+    BOT_TOKEN,
+    METRICS_TOPIC_ID,
+    LEADS_TOPIC_ID
+)
 
 PROM_QUERY_TEMPLATE = 'increase({metric}[24h])'
 
@@ -48,42 +50,48 @@ def build_summary() -> dict:
         "spam": "spam_total",
         "leads": "leads_total",
         "ai_requests": "ai_requests_total",
+        "leads_approved": "leads_approved_total",
+        "leads_rejected": "leads_rejected_total",
+        "leads_skipped": "leads_skipped_total",
+        "leads_blocked": "leads_blocked_total",
     }
 
     data = {k: query_prometheus(v) for k, v in keys.items()}
-    # Moscow time is UTC+3 (no DST currently) — используем фиксированный оффсет
-    data["ts"] = datetime.now(tz=timezone(timedelta(hours=3))).isoformat()
+    data["ts"] = datetime.now(tz=timezone(timedelta(hours=3))).strftime("%d.%m.%Y %H:%M")
     return data
 
 
 async def send_summary_message(chat_id: int):
     stats = build_summary()
-
     text = (
         f"📋 Сводка за последние 24 часа (МСК)\n\n"
         f"Всего сообщений: {stats['messages']}\n"
         f"Спам (фильтрация): {stats['spam']}\n"
-        f"Обнаружено лидов: {stats['leads']}\n"
         f"Запросов к AI: {stats['ai_requests']}\n"
-        f"\n_Время обновления:_ {stats['ts']}")
+        f"Обнаружено лидов: {stats['leads']}\n\n"
+        f"Одобренных лидов: {stats['leads_approved']}\n"
+        f"Отклоненных лидов: {stats['leads_rejected']}\n"
+        f"Пропущенных лидов: {stats['leads_skipped']}\n"
+        f"Заблокированных лидов: {stats['leads_blocked']}\n\n"
+        f"Дата отчета: {stats['ts']}")
+
 
     bot = Bot(BOT_TOKEN)
 
     for attempt in range(3):
         try:
-            await bot.send_message(chat_id=chat_id, text=text)
+            await bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                message_thread_id=METRICS_TOPIC_ID,
+            )
             return
         except Exception:
             await asyncio.sleep(2 * (attempt + 1))
 
 
 async def job(context):
-    """JobQueue wrapper. Отправляем сводку в чат из настроек."""
-    from settings import LEADS_CHAT_ID
-
     try:
-        await send_summary_message(LEADS_CHAT_ID)
+        await send_summary_message(LEADS_TOPIC_ID)
     except Exception as e:
         print(f"Ошибка при отправке ежедневной сводки: {e}", flush=True)
-
-

@@ -27,6 +27,30 @@ LEADS = Counter(
 )
 
 
+LEADS_APPROVED = Counter(
+    "leads_approved_total",
+    "Approved leads by human"
+)
+
+
+LEADS_REJECTED = Counter(
+    "leads_approved_total",
+    "Rejected leads by human"
+)
+
+
+LEADS_SKIPPED = Counter(
+    "leads_skipped_total",
+    "Skipped leads by human"
+)
+
+
+LEADS_BLOCKED = Counter(
+    "leads_blocked_total",
+    "Blocked leads by human"
+)
+
+
 AI_REQUESTS = Counter(
     "ai_requests_total",
     "Requests sent to AI"
@@ -61,3 +85,19 @@ def lead_detected():
 
 def ai_request():
     AI_REQUESTS.inc()
+
+
+def lead_approved():
+    LEADS_APPROVED.inc()
+
+
+def lead_rejected():
+    LEADS_REJECTED.inc()
+
+
+def lead_skipped():
+    LEADS_SKIPPED.inc()
+
+
+def lead_blocked():
+    LEADS_BLOCKED.inc()
