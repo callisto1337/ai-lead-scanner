@@ -354,6 +354,16 @@ def run_bot():
         )
     )
 
+    try:
+        from daily_summary import job as daily_summary_job
+        from datetime import time, timezone, timedelta
+
+        # Moscow time = UTC+3
+        msk_tz = timezone(timedelta(hours=3))
+        app.job_queue.run_daily(daily_summary_job, time=time(hour=0, minute=0, tzinfo=msk_tz))
+    except Exception as e:
+        print(f"Не удалось зарегистрировать ежедневную сводку: {e}", flush=True)
+
 
     app.run_polling()
 

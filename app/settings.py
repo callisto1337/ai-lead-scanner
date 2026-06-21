@@ -15,6 +15,7 @@ API_ID = int(os.getenv("API_ID"))
 API_HASH = str(os.getenv("API_HASH"))
 BOT_TOKEN = str(os.getenv("BOT_TOKEN"))
 LEADS_CHAT_ID = int(os.getenv("LEADS_CHAT_ID"))
+PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
 
 CHAR_REPLACEMENTS_FILE = CONFIG_DIR / "char_replacements.txt"
 SEEN_MESSAGES_PATH = CONFIG_DIR / "seen_messages.json"
