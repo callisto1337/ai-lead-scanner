@@ -3,7 +3,6 @@ import re
 import hashlib
 import unicodedata
 from difflib import SequenceMatcher
-from datetime import datetime
 from settings import (
     BASE_DIR,
     CHAR_REPLACEMENTS_FILE,
@@ -121,6 +120,9 @@ def is_duplicate_but_not_previously_lead(text) -> bool:
     Если же найден похожий в памяти элемент, помеченный как lead (lead == True),
     считаем, что это не спам и возвращаем False.
     """
+    # убедимся, что файл для увиденных сообщений существует
+    ensure_seen_messages_storage()
+
     # повторим логику определения дубля, но без записи и с проверкой памяти
     path = SEEN_MESSAGES_PATH
 
