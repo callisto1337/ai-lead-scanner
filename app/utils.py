@@ -115,47 +115,59 @@ def ensure_seen_messages_storage():
         )
 
 
-def is_duplicate(text):
+def is_duplicate_but_not_previously_lead(text) -> bool:
+    """Возвращает True, если сообщение дубликат и ранее похожие сообщения НЕ были помечены как лид.
+
+    Если же найден похожий в памяти элемент, помеченный как lead (lead == True),
+    считаем, что это не спам и возвращаем False.
+    """
+    # повторим логику определения дубля, но без записи и с проверкой памяти
     path = SEEN_MESSAGES_PATH
-    ensure_seen_messages_storage()
 
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except:
+    except Exception:
         data = []
 
     normalized_text = normalize(text)
     msg_hash = get_hash(text)
 
-    now = datetime.now()
+    duplicate = False
 
     for item in data:
-        if item["hash"] == msg_hash:
-            return True
+        if item.get("hash") == msg_hash:
+            duplicate = True
+            break
 
-    recent_items = data[-DUPLICATE_COMPARE_LIMIT:]
+    if not duplicate:
+        recent_items = data[-DUPLICATE_COMPARE_LIMIT:]
 
-    for item in recent_items:
-        previous_text = item.get("text", "")
+        for item in recent_items:
+            previous_text = item.get("text", "")
 
-        if is_similar_text(normalized_text, previous_text):
-            return True
+            if is_similar_text(normalized_text, previous_text):
+                duplicate = True
+                break
 
-    data.append({
-        "hash": msg_hash,
-        "time": str(now),
-        "text": normalized_text,
-    })
+    if not duplicate:
+        return False
 
-    # храним последние 5000
-    data = data[-5000:]
+    # Если дубликат — проверить память о помеченных лидах
+    try:
+        from memory import load_memory
 
-    path.write_text(
-        json.dumps(data, ensure_ascii=False),
-        encoding="utf-8"
-    )
+        memory = load_memory()
+    except Exception:
+        memory = []
 
-    return False
+    for mem in memory:
+        mem_text = mem.get("text", "")
+        if is_similar_text(normalized_text, normalize(mem_text)) and mem.get("lead"):
+            # ранее похожее сообщение было признано лидом — не считать текущий спамом
+            return False
+
+    # дубликат и похожих лидов в памяти не найдено — считаем спамом
+    return True
 
 
 def normalize(text):
