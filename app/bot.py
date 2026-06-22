@@ -8,8 +8,11 @@ from telegram.error import TimedOut, NetworkError, RetryAfter
 from telegram.request import HTTPXRequest
 from telegram.ext import (
     Application,
-    CallbackQueryHandler, ContextTypes,
+    CallbackQueryHandler,
+    ContextTypes,
+    CommandHandler,
 )
+from daily_summary import send_summary_message
 from dotenv import load_dotenv
 
 from metrics import lead_approved, lead_rejected, lead_skipped, lead_blocked
@@ -249,6 +252,11 @@ async def send_to_leads(result):
 # ---------------- BUTTONS ----------------
 
 
+async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("📋 Отправляю отчет...")
+    await send_summary_message()
+
+
 async def button_handler(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE, # не удалять!!
@@ -364,6 +372,9 @@ def run_bot():
         CallbackQueryHandler(
             button_handler
         )
+    )
+    app.add_handler(
+        CommandHandler("report", report_command)
     )
 
     try:
