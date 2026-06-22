@@ -249,12 +249,21 @@ async def send_to_leads(result):
     return False
 
 
-# ---------------- BUTTONS ----------------
+# ---------------- COMMANDS ----------------
 
 
 async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📋 Отправляю отчет...")
-    await send_summary_message()
+    try:
+        await update.message.reply_text("📋 Отправляю отчет...")
+        print("🔍 Начинаю отправку отчета...", flush=True)
+        await send_summary_message()
+        print("✅ Отчет успешно отправлен", flush=True)
+    except Exception as e:
+        print(f"❌ Ошибка при отправке отчета: {e}", flush=True)
+        await update.message.reply_text(f"❌ Ошибка: {e}")
+
+
+# ---------------- BUTTONS ----------------
 
 
 async def button_handler(

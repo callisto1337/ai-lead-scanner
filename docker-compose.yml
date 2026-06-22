@@ -41,7 +41,7 @@ services:
 
     container_name: lead-scanner-bot
 
-    command: python ./app/bot.py
+    command: python -u ./app/bot.py
 
     restart: always
 

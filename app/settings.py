@@ -17,7 +17,7 @@ BOT_TOKEN = str(os.getenv("BOT_TOKEN", ""))
 GROUP_ID = int(os.getenv("GROUP_ID", "0"))
 METRICS_TOPIC_ID = int(os.getenv("METRICS_TOPIC_ID", "0"))
 LEADS_TOPIC_ID = int(os.getenv("LEADS_TOPIC_ID", "0"))
-PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+PROMETHEUS_URL = "http://prometheus:9090"
 
 CHAR_REPLACEMENTS_FILE = CONFIG_DIR / "char_replacements.txt"
 SEEN_MESSAGES_PATH = CONFIG_DIR / "seen_messages.json"

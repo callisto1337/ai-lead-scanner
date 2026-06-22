@@ -26,7 +26,8 @@ def _parse_prometheus_increase(resp_json) -> int:
         # value is [timestamp, value]
         value = result[0].get("value", [None, "0"])[1]
         return int(float(value))
-    except Exception:
+    except Exception as e:
+        print(f"❌ Ошибка при парсинге Prometheus ответа: {e}. Ответ: {resp_json}", flush=True)
         return 0
 
 
@@ -39,12 +40,14 @@ def query_prometheus(metric_name: str) -> int:
             r = client.get(url, params={"query": query})
             r.raise_for_status()
             return _parse_prometheus_increase(r.json())
-    except Exception:
+    except Exception as e:
+        print(f"❌ Ошибка при запросе к Prometheus ({url}). Метрика: {metric_name}. Ошибка: {e}", flush=True)
         return 0
 
 
 def build_summary() -> dict:
     """Возвращает статистику за последние 24 часа, беря данные из Prometheus."""
+    print("🔍 Начинаю запрос к Prometheus...", flush=True)
     keys = {
         "messages": "messages_total",
         "spam": "spam_total",
@@ -57,12 +60,14 @@ def build_summary() -> dict:
     }
 
     data = {k: query_prometheus(v) for k, v in keys.items()}
+    print(f"✅ Получены данные из Prometheus: {data}", flush=True)
     data["ts"] = datetime.now(tz=timezone(timedelta(hours=3))).strftime("%d.%m.%Y %H:%M")
     return data
 
 
 async def send_summary_message():
     stats = build_summary()
+
     text = (
         f"📋 Сводка за последние 24 часа (МСК)\n\n"
         f"Всего сообщений: {stats['messages']}\n"
