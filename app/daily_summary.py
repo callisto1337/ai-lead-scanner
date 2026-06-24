@@ -5,7 +5,7 @@ from telegram import Bot
 from settings import (
     PROMETHEUS_URL,
     BOT_TOKEN,
-    GROUP_ID,
+    CHAT_ID,
     METRICS_TOPIC_ID,
 )
 
@@ -86,7 +86,7 @@ async def send_summary_message():
     for attempt in range(3):
         try:
             await bot.send_message(
-                chat_id=GROUP_ID,
+                chat_id=CHAT_ID,
                 text=text,
                 message_thread_id=METRICS_TOPIC_ID,
             )

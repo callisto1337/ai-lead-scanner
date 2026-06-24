@@ -16,7 +16,7 @@ from daily_summary import send_summary_message
 from dotenv import load_dotenv
 
 from metrics import lead_approved, lead_rejected, lead_skipped, lead_blocked
-from settings import BOT_TOKEN, BASE_DIR, GROUP_ID, LEADS_TOPIC_ID
+from settings import BOT_TOKEN, BASE_DIR, CHAT_ID, LEADS_TOPIC_ID
 
 import json
 import uuid
@@ -203,7 +203,7 @@ async def send_to_leads(result):
     for attempt in range(3):
         try:
             await bot.send_message(
-                chat_id=GROUP_ID,
+                chat_id=CHAT_ID,
                 text=message,
                 message_thread_id=LEADS_TOPIC_ID,
                 reply_markup=InlineKeyboardMarkup(
@@ -386,6 +386,8 @@ def run_bot():
         CommandHandler("report", report_command)
     )
 
+    print("🤖 Бот запущен", flush=True)
+
     try:
         from daily_summary import job as daily_summary_job
         from datetime import time, timezone, timedelta
@@ -398,8 +400,6 @@ def run_bot():
 
 
     app.run_polling()
-
-    print("🤖 Бот запущен")
 
 
 
