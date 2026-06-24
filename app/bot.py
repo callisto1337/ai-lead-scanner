@@ -15,7 +15,7 @@ from telegram.ext import (
 from daily_summary import send_summary_message
 from dotenv import load_dotenv
 
-from metrics import lead_approved, lead_rejected, lead_skipped, lead_blocked
+from metrics import lead_approved, lead_rejected, lead_skipped, lead_blocked, start_metrics
 from settings import BOT_TOKEN, BASE_DIR, CHAT_ID, LEADS_TOPIC_ID
 
 import json
@@ -322,9 +322,7 @@ async def button_handler(
         feedback = "spam"
         is_lead = False
 
-        lead_blocked(
-            lead.get("user_id")
-        )
+        lead_blocked()
         add_to_blacklist(
             lead.get("user_id")
         )
@@ -371,6 +369,8 @@ async def button_handler(
 def run_bot():
 
     print("🚀 Запуск бота...")
+
+    start_metrics(8001)
 
     app = Application.builder()\
         .token(BOT_TOKEN)\

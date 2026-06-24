@@ -9,7 +9,7 @@ from settings import (
     METRICS_TOPIC_ID,
 )
 
-PROM_QUERY_TEMPLATE = 'increase({metric}[24h])'
+PROM_QUERY_TEMPLATE = 'sum(increase({metric}[24h]))'
 
 
 def _parse_prometheus_increase(resp_json) -> int:

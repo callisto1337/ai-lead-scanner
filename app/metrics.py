@@ -63,12 +63,12 @@ AI_TIME = Histogram(
 )
 
 
-def start_metrics():
+def start_metrics(port: int = 8000):
     """
     Запускает HTTP сервер Prometheus
     """
-    start_http_server(8000)
-    print("📊 Запуск сбора метрик")
+    start_http_server(port)
+    print(f"📊 Запуск сбора метрик", flush=True)
 
 
 def message_received():

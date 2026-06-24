@@ -7,3 +7,4 @@ scrape_configs:
     static_configs:
       - targets:
           - monitor:8000
+          - bot:8001
