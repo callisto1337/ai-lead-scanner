@@ -1,8 +1,10 @@
 .idea/
 .env
+.venv
 sessions/lead_monitor.session
 ./sessions.session
 lead_monitor.session-journal
 /config/memory.json
 /config/seen_messages.json
 /config/pending_leads.json
+ app/__pycache__/
