@@ -23,7 +23,7 @@ import uuid
 import html
 import asyncio
 from datetime import datetime
-from memory import save_memory
+from memory import save_memory, delete_memory
 
 
 load_dotenv()
@@ -102,6 +102,45 @@ def add_to_blacklist(value):
     )
 
 
+def remove_from_blacklist(value):
+
+    if not value:
+        return
+
+    value = str(value).strip()
+
+    if not value:
+        return
+
+    path = blacklist_path()
+
+    try:
+        existing = [
+            line.strip()
+            for line in path.read_text(
+                encoding="utf-8"
+            ).splitlines()
+            if line.strip()
+        ]
+
+    except:
+        return
+
+    filtered = [
+        item
+        for item in existing
+        if item != value
+    ]
+
+    if len(filtered) == len(existing):
+        return
+
+    path.write_text(
+        "\n".join(filtered) + ("\n" if filtered else ""),
+        encoding="utf-8"
+    )
+
+
 def save_pending_lead(lead_id, data):
 
     ensure_pending_storage()
@@ -145,21 +184,8 @@ def load_pending_leads():
         return {}
 
 
-# ---------------- SEND ----------------
-
-
-async def send_to_leads(result):
-
-    lead_id = str(uuid.uuid4())[:8]
-
-
-    save_pending_lead(
-        lead_id,
-        result
-    )
-
-
-    keyboard = [
+def build_rating_keyboard(lead_id):
+    return [
         [
             InlineKeyboardButton(
                 "👍 Хороший",
@@ -186,6 +212,58 @@ async def send_to_leads(result):
     ]
 
 
+def build_change_keyboard(lead_id):
+    return [
+        [
+            InlineKeyboardButton(
+                "✏️ Изменить выбор",
+                callback_data=f"change:{lead_id}"
+            )
+        ]
+    ]
+
+
+RATING_PREFIXES = (
+    "👍 Оценка:",
+    "👎 Оценка:",
+    "🚫 Оценка:",
+    "⏭️ Оценка:",
+)
+
+
+def clear_rating_text(text):
+    lines = text.rstrip().splitlines()
+
+    while lines:
+        last_line = lines[-1].strip()
+
+        if not last_line:
+            lines.pop()
+            continue
+
+        if any(last_line.startswith(prefix) for prefix in RATING_PREFIXES):
+            lines.pop()
+            continue
+
+        break
+
+    return "\n".join(lines)
+
+
+# ---------------- SEND ----------------
+
+
+async def send_to_leads(result):
+
+    lead_id = str(uuid.uuid4())[:8]
+
+
+    save_pending_lead(
+        lead_id,
+        result
+    )
+
+
     message = f"""
     🔥 НОВЫЙ ЛИД
 
@@ -207,7 +285,7 @@ async def send_to_leads(result):
                 text=message,
                 message_thread_id=LEADS_TOPIC_ID,
                 reply_markup=InlineKeyboardMarkup(
-                    keyboard
+                    build_rating_keyboard(lead_id)
                 ),
                 parse_mode="HTML"
             )
@@ -300,6 +378,19 @@ async def button_handler(
 
         return
 
+    if action == "change":
+
+        await query.edit_message_text(
+            text=clear_rating_text(query.message.text),
+            reply_markup=InlineKeyboardMarkup(
+                build_rating_keyboard(lead_id)
+            )
+        )
+
+        return
+
+    previous_feedback = lead.get("feedback")
+
     if action == "good":
 
         rating_text = "👍 Оценка: хороший лид"
@@ -344,21 +435,39 @@ async def button_handler(
 
         return
 
-    if feedback not in ("spam", "skip"):
+    if previous_feedback == "spam" and feedback != "spam":
+        remove_from_blacklist(
+            lead.get("user_id")
+        )
 
+    lead["feedback"] = feedback
+    lead["human_lead"] = is_lead
+    lead["rated_at"] = str(datetime.now())
+
+    save_pending_lead(
+        lead_id,
+        lead
+    )
+
+    if feedback not in ("spam", "skip"):
         save_memory({
+            "id": lead_id,
             "text": lead["text"],
             "lead": is_lead,
             "feedback": feedback,
             "time": str(datetime.now()),
             "description": lead["description"],
         })
+    else:
+        delete_memory(lead_id)
 
-    old_text = query.message.text
+    old_text = clear_rating_text(query.message.text)
 
     await query.edit_message_text(
         text=old_text + "\n\n" + rating_text,
-        reply_markup=None
+        reply_markup=InlineKeyboardMarkup(
+            build_change_keyboard(lead_id)
+        )
     )
 
 
