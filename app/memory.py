@@ -1,5 +1,5 @@
 import json
-from settings import BASE_DIR
+from app.settings import BASE_DIR
 
 MEMORY_PATH = BASE_DIR / "config" / "memory.json"
 

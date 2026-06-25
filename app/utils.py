@@ -3,7 +3,7 @@ import re
 import hashlib
 import unicodedata
 from difflib import SequenceMatcher
-from settings import (
+from app.settings import (
     BASE_DIR,
     CHAR_REPLACEMENTS_FILE,
     DUPLICATE_SIMILARITY_THRESHOLD,

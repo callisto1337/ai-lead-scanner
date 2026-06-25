@@ -1,15 +1,17 @@
 import asyncio
-import httpx
 from datetime import datetime, timezone, timedelta
+
+import httpx
 from telegram import Bot
-from settings import (
-    PROMETHEUS_URL,
+
+from app.settings import (
     BOT_TOKEN,
     CHAT_ID,
     METRICS_TOPIC_ID,
+    PROMETHEUS_URL,
 )
 
-PROM_QUERY_TEMPLATE = 'sum(increase({metric}[24h]))'
+PROM_QUERY_TEMPLATE = "sum(increase({metric}[24h]))"
 
 
 def _parse_prometheus_increase(resp_json) -> int:
@@ -78,8 +80,8 @@ async def send_summary_message():
         f"Отклоненных лидов: {stats['leads_rejected']}\n"
         f"Пропущенных лидов: {stats['leads_skipped']}\n"
         f"Заблокированных лидов: {stats['leads_blocked']}\n\n"
-        f"Дата отчета: {stats['ts']}")
-
+        f"Дата отчета: {stats['ts']}"
+    )
 
     bot = Bot(BOT_TOKEN)
 

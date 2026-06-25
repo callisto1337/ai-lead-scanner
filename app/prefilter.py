@@ -1,4 +1,4 @@
-from utils import normalize, load_lines, is_duplicate, is_duplicate_but_not_previously_lead
+from app.utils import normalize, load_lines, is_duplicate, is_duplicate_but_not_previously_lead
 
 STOPWORDS_LIST = load_lines("stopwords.txt")
 

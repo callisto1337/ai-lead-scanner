@@ -1,7 +1,7 @@
 import ollama
 import time
-from memory import load_memory
-from utils import normalize, extract_json, load_lines, load_text
+from app.memory import load_memory
+from app.utils import normalize, extract_json, load_lines, load_text
 
 
 KEYWORDS = load_lines("keywords.txt")

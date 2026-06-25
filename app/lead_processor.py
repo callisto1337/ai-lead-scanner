@@ -1,6 +1,6 @@
-from prefilter import prefilter_message
-from filter import is_lead
-from metrics import (
+from app.prefilter import prefilter_message
+from app.filter import is_lead
+from app.metrics import (
     message_received,
     spam_detected,
     lead_detected,

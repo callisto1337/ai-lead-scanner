@@ -18,7 +18,7 @@ services:
 
     container_name: lead-scanner-monitor
 
-    command: python ./app/main.py
+    command: python -m app.main
 
     restart: on-failure:3
 
@@ -41,7 +41,7 @@ services:
 
     container_name: lead-scanner-bot
 
-    command: python -u ./app/bot.py
+    command: python -u -m app.bot.runner
 
     restart: always
 

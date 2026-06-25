@@ -1,6 +1,6 @@
-from lifecycle import run_monitor
-from telegram_client import create_client
-from handlers import register_handlers
+from app.lifecycle import run_monitor
+from app.telegram_client import create_client
+from app.handlers import register_handlers
 
 
 client = create_client()

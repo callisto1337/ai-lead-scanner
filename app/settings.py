@@ -20,6 +20,8 @@ LEADS_TOPIC_ID = int(os.getenv("LEADS_TOPIC_ID", "0"))
 PROMETHEUS_URL = "http://prometheus:9090"
 
 CHAR_REPLACEMENTS_FILE = CONFIG_DIR / "char_replacements.txt"
+BLACKLIST_PATH = CONFIG_DIR / "blacklist.txt"
+PENDING_LEADS_PATH = CONFIG_DIR / "pending_leads.json"
 SEEN_MESSAGES_PATH = CONFIG_DIR / "seen_messages.json"
 
 DUPLICATE_SIMILARITY_THRESHOLD = float(

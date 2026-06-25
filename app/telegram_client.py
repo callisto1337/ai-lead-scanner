@@ -1,5 +1,5 @@
 from telethon import TelegramClient
-from settings import API_ID, API_HASH, SESSIONS_DIR
+from app.settings import API_ID, API_HASH, SESSIONS_DIR
 
 
 def create_client() -> TelegramClient:

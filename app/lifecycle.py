@@ -1,5 +1,5 @@
 from telethon.errors import FloodWaitError
-from metrics import start_metrics
+from app.metrics import start_metrics
 import sys
 import time
 import traceback

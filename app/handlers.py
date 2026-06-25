@@ -1,10 +1,10 @@
 from telethon import events
-from settings import CHAT_ID
-from bot import send_to_leads
-from utils import build_tg_link
-from blacklist import is_blacklisted
-from sender_utils import enrich_sender_info
-from lead_processor import process_message
+from app.settings import CHAT_ID
+from app.bot.sender import send_to_leads
+from app.utils import build_tg_link
+from app.blacklist import is_blacklisted
+from app.sender_utils import enrich_sender_info
+from app.lead_processor import process_message
 
 
 def register_handlers(client):
