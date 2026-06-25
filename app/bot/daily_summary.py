@@ -1,9 +1,8 @@
 import asyncio
-from datetime import datetime, timezone, timedelta
-
 import httpx
+from datetime import datetime, timezone, timedelta
 from telegram import Bot
-
+from app.db import count_final_feedback_since
 from app.settings import (
     BOT_TOKEN,
     CHAT_ID,
@@ -62,7 +61,15 @@ def build_summary() -> dict:
     }
 
     data = {k: query_prometheus(v) for k, v in keys.items()}
-    print(f"✅ Получены данные из Prometheus: {data}", flush=True)
+
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    final_feedback = count_final_feedback_since(since.isoformat())
+    data["leads_approved"] = final_feedback.get("good", 0)
+    data["leads_rejected"] = final_feedback.get("bad", 0)
+    data["leads_skipped"] = final_feedback.get("skip", 0)
+    data["leads_blocked"] = final_feedback.get("spam", 0)
+
+    print(f"✅ Получены данные для сводки: {data}", flush=True)
     data["ts"] = datetime.now(tz=timezone(timedelta(hours=3))).strftime("%d.%m.%Y %H:%M")
     return data
 
@@ -76,6 +83,7 @@ async def send_summary_message():
         f"Спам (фильтрация): {stats['spam']}\n"
         f"Запросов к AI: {stats['ai_requests']}\n"
         f"Обнаружено лидов: {stats['leads']}\n\n"
+        f"Финальные оценки за 24 часа:\n"
         f"Одобренных лидов: {stats['leads_approved']}\n"
         f"Отклоненных лидов: {stats['leads_rejected']}\n"
         f"Пропущенных лидов: {stats['leads_skipped']}\n"

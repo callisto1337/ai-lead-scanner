@@ -1,5 +1,6 @@
 import json
 
+from app.db import get_lead, save_lead
 from app.settings import BLACKLIST_PATH, PENDING_LEADS_PATH
 
 
@@ -27,6 +28,15 @@ def load_pending_leads():
         return {}
 
 
+def load_pending_lead(lead_id):
+    lead = get_lead(lead_id)
+
+    if lead:
+        return lead
+
+    return load_pending_leads().get(lead_id)
+
+
 def save_pending_lead(lead_id, data):
     storage = load_pending_leads()
     storage[lead_id] = data
@@ -38,6 +48,11 @@ def save_pending_lead(lead_id, data):
             indent=2
         ),
         encoding="utf-8"
+    )
+
+    save_lead(
+        lead_id,
+        data
     )
 
 

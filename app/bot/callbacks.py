@@ -1,7 +1,7 @@
 import html
-from datetime import datetime
 from telegram.ext import ContextTypes
 from app.blacklist import add_to_blacklist
+from app.db import now_iso, update_lead_feedback
 from app.memory import save_memory, delete_memory
 from app.metrics import lead_blocked, lead_approved, lead_rejected, lead_skipped
 from telegram import (
@@ -11,7 +11,7 @@ from telegram import (
 
 from .keyboards import build_rating_keyboard, build_change_keyboard
 from .messages import build_lead_message, build_rater_info
-from .storage import load_pending_leads, remove_from_blacklist, save_pending_lead
+from .storage import load_pending_lead, remove_from_blacklist, save_pending_lead
 
 
 async def button_handler(
@@ -34,9 +34,7 @@ async def button_handler(
         )
         return
 
-    pending = load_pending_leads()
-
-    lead = pending.get(lead_id)
+    lead = load_pending_lead(lead_id)
 
     if not lead:
         await query.answer(
@@ -110,9 +108,26 @@ async def button_handler(
 
     rater = build_rater_info(query.from_user)
 
+    rated_at = now_iso()
+
+    # Old Telegram messages can still point to leads that exist only in JSON.
+    # Saving before the update guarantees the DB row exists for event history.
+    save_pending_lead(
+        lead_id,
+        lead
+    )
+
+    update_lead_feedback(
+        lead_id,
+        feedback,
+        is_lead,
+        rated_at,
+        rater
+    )
+
     lead["feedback"] = feedback
     lead["human_lead"] = is_lead
-    lead["rated_at"] = str(datetime.now())
+    lead["rated_at"] = rated_at
     lead["rated_by"] = rater
 
     save_pending_lead(
@@ -126,7 +141,7 @@ async def button_handler(
             "text": lead["text"],
             "lead": is_lead,
             "feedback": feedback,
-            "time": str(datetime.now()),
+            "time": rated_at,
             "description": lead["description"],
             "rated_by": rater,
         })
