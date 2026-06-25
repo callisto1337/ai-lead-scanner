@@ -292,6 +292,26 @@ def build_rater_info(user):
     }
 
 
+def build_lead_message(lead, rating_block=None):
+    message = f"""
+    🔥 НОВЫЙ ЛИД
+
+💬 Сообщение:
+<pre>{html.escape(lead["text"])}</pre>
+
+👤 Пользователь:
+{lead.get("user_link", "нет ссылки")}
+
+🔗 Источник:
+{html.escape(lead.get("link", "нет ссылки"))}
+"""
+
+    if rating_block:
+        message += f"\n\n{rating_block}"
+
+    return message
+
+
 # ---------------- SEND ----------------
 
 
@@ -306,25 +326,11 @@ async def send_to_leads(result):
     )
 
 
-    message = f"""
-    🔥 НОВЫЙ ЛИД
-
-💬 Сообщение:
-{html.escape(result["text"])}
-
-👤 Пользователь:
-{result.get("user_link", "нет ссылки")}
-
-🔗 Источник:
-{html.escape(result.get("link", "нет ссылки"))}
-"""
-
-
     for attempt in range(3):
         try:
             await bot.send_message(
                 chat_id=CHAT_ID,
-                text=message,
+                text=build_lead_message(result),
                 message_thread_id=LEADS_TOPIC_ID,
                 reply_markup=InlineKeyboardMarkup(
                     build_rating_keyboard(lead_id)
@@ -423,10 +429,11 @@ async def button_handler(
     if action == "change":
 
         await query.edit_message_text(
-            text=clear_rating_text(query.message.text),
+            text=build_lead_message(lead),
             reply_markup=InlineKeyboardMarkup(
                 build_rating_keyboard(lead_id)
-            )
+            ),
+            parse_mode="HTML"
         )
 
         return
@@ -507,14 +514,20 @@ async def button_handler(
     else:
         delete_memory(lead_id)
 
-    old_text = clear_rating_text(query.message.text)
-    rating_block = f"{rating_text}\n👤 Оценил: {rater['text']}"
+    rating_block = (
+        f"{rating_text}\n"
+        f"👨🏻‍💼 Оценил: {html.escape(rater['text'])}"
+    )
 
     await query.edit_message_text(
-        text=old_text + "\n\n" + rating_block,
+        text=build_lead_message(
+            lead,
+            rating_block
+        ),
         reply_markup=InlineKeyboardMarkup(
             build_change_keyboard(lead_id)
-        )
+        ),
+        parse_mode="HTML"
     )
 
 
