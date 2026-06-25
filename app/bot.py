@@ -230,6 +230,10 @@ RATING_PREFIXES = (
     "⏭️ Оценка:",
 )
 
+RATING_META_PREFIXES = (
+    "👤 Оценил:",
+)
+
 
 def clear_rating_text(text):
     lines = text.rstrip().splitlines()
@@ -245,9 +249,47 @@ def clear_rating_text(text):
             lines.pop()
             continue
 
+        if any(last_line.startswith(prefix) for prefix in RATING_META_PREFIXES):
+            lines.pop()
+            continue
+
         break
 
     return "\n".join(lines)
+
+
+def build_rater_info(user):
+    if not user:
+        return {
+            "id": None,
+            "text": "неизвестный аккаунт"
+        }
+
+    full_name = " ".join(
+        part
+        for part in (
+            getattr(user, "first_name", None),
+            getattr(user, "last_name", None),
+        )
+        if part
+    )
+
+    username = getattr(user, "username", None)
+    user_id = getattr(user, "id", None)
+
+    if username:
+        text = f"@{username}"
+    elif full_name:
+        text = f"{full_name} (ID: {user_id})"
+    else:
+        text = f"ID: {user_id}"
+
+    return {
+        "id": user_id,
+        "username": username,
+        "name": full_name,
+        "text": text
+    }
 
 
 # ---------------- SEND ----------------
@@ -440,9 +482,12 @@ async def button_handler(
             lead.get("user_id")
         )
 
+    rater = build_rater_info(query.from_user)
+
     lead["feedback"] = feedback
     lead["human_lead"] = is_lead
     lead["rated_at"] = str(datetime.now())
+    lead["rated_by"] = rater
 
     save_pending_lead(
         lead_id,
@@ -457,14 +502,16 @@ async def button_handler(
             "feedback": feedback,
             "time": str(datetime.now()),
             "description": lead["description"],
+            "rated_by": rater,
         })
     else:
         delete_memory(lead_id)
 
     old_text = clear_rating_text(query.message.text)
+    rating_block = f"{rating_text}\n👤 Оценил: {rater['text']}"
 
     await query.edit_message_text(
-        text=old_text + "\n\n" + rating_text,
+        text=old_text + "\n\n" + rating_block,
         reply_markup=InlineKeyboardMarkup(
             build_change_keyboard(lead_id)
         )
