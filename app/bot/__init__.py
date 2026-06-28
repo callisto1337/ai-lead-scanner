@@ -1,5 +1,5 @@
-from .runner import run_bot
-from .sender import send_to_leads
+from app.bot.runner import run_bot
+from app.bot.sender import send_to_leads
 
 __all__ = [
     "run_bot",

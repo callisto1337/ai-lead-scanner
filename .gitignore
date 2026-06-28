@@ -8,3 +8,6 @@ lead_monitor.session-journal
 /config/seen_messages.json
 /config/pending_leads.json
  app/__pycache__/
+__pycache__
+*.pyc
+.git

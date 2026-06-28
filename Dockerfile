@@ -1,11 +1,15 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+ENV POETRY_VIRTUALENVS_CREATE=false
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install poetry
+
+COPY pyproject.toml poetry.lock ./
+
+RUN poetry install --only main --no-interaction --no-ansi
 
 COPY . .
 
-CMD ["python", "-u", "app/main.py"]
+CMD ["python", "-m", "app.main"]
