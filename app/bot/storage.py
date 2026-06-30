@@ -1,6 +1,6 @@
 import json
 
-from app.db import get_lead, save_lead
+from app.db import get_message, save_message
 from app.settings import BLACKLIST_PATH, PENDING_LEADS_PATH
 
 
@@ -28,18 +28,18 @@ def load_pending_leads():
         return {}
 
 
-def load_pending_lead(lead_id):
-    lead = get_lead(lead_id)
+def load_pending_lead(message_id):
+    lead = get_message(message_id)
 
     if lead:
         return lead
 
-    return load_pending_leads().get(lead_id)
+    return load_pending_leads().get(message_id)
 
 
-def save_pending_lead(lead_id, data):
+def save_pending_lead(message_id, data):
     storage = load_pending_leads()
-    storage[lead_id] = data
+    storage[message_id] = data
 
     PENDING_LEADS_PATH.write_text(
         json.dumps(
@@ -50,8 +50,8 @@ def save_pending_lead(lead_id, data):
         encoding="utf-8"
     )
 
-    save_lead(
-        lead_id,
+    save_message(
+        message_id,
         data
     )
 

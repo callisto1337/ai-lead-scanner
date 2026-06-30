@@ -21,7 +21,7 @@ def init_db():
     with get_connection() as conn:
         conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS leads (
+            CREATE TABLE IF NOT EXISTS messages (
                 id TEXT PRIMARY KEY,
                 text TEXT NOT NULL,
                 description TEXT,
@@ -43,9 +43,9 @@ def init_db():
         )
         conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS lead_feedback_events (
+            CREATE TABLE IF NOT EXISTS message_feedback_events (
                 id BIGSERIAL PRIMARY KEY,
-                lead_id TEXT NOT NULL REFERENCES leads(id),
+                lead_id TEXT NOT NULL REFERENCES messages(id),
                 previous_feedback TEXT,
                 new_feedback TEXT NOT NULL,
                 previous_human_lead BOOLEAN,
@@ -61,19 +61,19 @@ def init_db():
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_leads_detected_at
-                ON leads(detected_at)
+                ON messages(detected_at)
             """
         )
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_leads_rated_at
-                ON leads(rated_at)
+                ON messages(rated_at)
             """
         )
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_feedback_events_lead_id
-                ON lead_feedback_events(lead_id)
+                ON message_feedback_events(message_id)
             """
         )
 
@@ -104,8 +104,8 @@ def _rater_from_row(row):
     }
 
 
-def _lead_from_row(row):
-    lead = {
+def _message_from_row(row):
+    message = {
         "id": row["id"],
         "text": row["text"],
         "description": row["description"] or "",
@@ -120,12 +120,12 @@ def _lead_from_row(row):
 
     rater = _rater_from_row(row)
     if rater:
-        lead["rated_by"] = rater
+        message["rated_by"] = rater
 
-    return lead
+    return message
 
 
-def save_lead(lead_id, data):
+def save_message(message_id, data):
     init_db()
 
     now = now_iso()
@@ -135,7 +135,7 @@ def save_lead(lead_id, data):
     with get_connection() as conn:
         conn.execute(
             """
-            INSERT INTO leads (
+            INSERT INTO messages (
                 id,
                 text,
                 description,
@@ -170,7 +170,7 @@ def save_lead(lead_id, data):
                 updated_at = EXCLUDED.updated_at
             """,
             (
-                lead_id,
+                message_id,
                 data["text"],
                 data.get("description"),
                 data.get("user_id"),
@@ -190,28 +190,28 @@ def save_lead(lead_id, data):
         )
 
 
-def get_lead(lead_id):
+def get_message(message_id):
     init_db()
 
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT * FROM leads WHERE id = %s",
-            (lead_id,)
+            "SELECT * FROM messages WHERE id = %s",
+            (message_id,)
         ).fetchone()
 
     if not row:
         return None
 
-    return _lead_from_row(row)
+    return _message_from_row(row)
 
 
-def update_lead_feedback(lead_id, feedback, human_lead, rated_at, rated_by):
+def update_message_feedback(message_id, feedback, human_lead, rated_at, rated_by):
     init_db()
 
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT feedback, human_lead FROM leads WHERE id = %s",
-            (lead_id,)
+            "SELECT feedback, human_lead FROM messages WHERE id = %s",
+            (message_id,)
         ).fetchone()
 
         if not row:
@@ -219,7 +219,7 @@ def update_lead_feedback(lead_id, feedback, human_lead, rated_at, rated_by):
 
         conn.execute(
             """
-            UPDATE leads
+            UPDATE messages
             SET
                 feedback = %s,
                 human_lead = %s,
@@ -238,14 +238,14 @@ def update_lead_feedback(lead_id, feedback, human_lead, rated_at, rated_by):
                 rated_by.get("username"),
                 rated_by.get("name"),
                 now_iso(),
-                lead_id,
+                message_id,
             )
         )
 
         conn.execute(
             """
-            INSERT INTO lead_feedback_events (
-                lead_id,
+            INSERT INTO message_feedback_events (
+                message_id,
                 previous_feedback,
                 new_feedback,
                 previous_human_lead,
@@ -259,7 +259,7 @@ def update_lead_feedback(lead_id, feedback, human_lead, rated_at, rated_by):
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
-                lead_id,
+                message_id,
                 row["feedback"],
                 feedback,
                 row["human_lead"],
@@ -282,7 +282,7 @@ def count_final_feedback_since(since_iso):
         rows = conn.execute(
             """
             SELECT feedback, COUNT(*) AS total
-            FROM leads
+            FROM messages
             WHERE rated_at IS NOT NULL
               AND rated_at >= %s
             GROUP BY feedback
