@@ -1,19 +1,13 @@
 from app.settings import BLACKLIST_PATH
 
 
-def blacklist_path():
-    return BLACKLIST_PATH
-
-
 def load_blacklist() -> set[str]:
-    path = BLACKLIST_PATH
-
-    if not path.exists():
+    if not BLACKLIST_PATH.exists():
         return set()
 
     return {
         line.strip()
-        for line in path.read_text(encoding="utf-8").splitlines()
+        for line in BLACKLIST_PATH.read_text(encoding="utf-8").splitlines()
         if line.strip()
     }
 
@@ -31,12 +25,10 @@ def add_to_blacklist(value):
     if not value:
         return
 
-    path = blacklist_path()
-
     try:
         existing = {
             line.strip()
-            for line in path.read_text(
+            for line in BLACKLIST_PATH.read_text(
                 encoding="utf-8"
             ).splitlines()
             if line.strip()
@@ -50,7 +42,7 @@ def add_to_blacklist(value):
 
     existing.add(value)
 
-    path.write_text(
+    BLACKLIST_PATH.write_text(
         "\n".join(sorted(existing)) + "\n",
         encoding="utf-8"
     )
