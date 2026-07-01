@@ -35,11 +35,6 @@ async def send_to_leads(result):
         result
     )
 
-    save_message_embedding(
-        message_id,
-        result
-    )
-
     for attempt in range(3):
         try:
             await bot.send_message(

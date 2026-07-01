@@ -1,20 +1,30 @@
 from telethon.errors import FloodWaitError
 from app.metrics import start_metrics
+from app.embedding_worker import embedding_worker
 import sys
 import time
 import traceback
+import threading
+import asyncio
+
+
+def start_embedding_worker():
+    asyncio.run(embedding_worker())
 
 
 def run_monitor(client):
     print("🚀 Запуск мониторинга...", flush=True)
-    sys.stdout.flush()
-
     start_metrics()
+
+    worker_thread = threading.Thread(
+        target=start_embedding_worker,
+        daemon=True
+    )
+    worker_thread.start()
 
     try:
         client.start()
         print("🖥️ Мониторинг запущен", flush=True)
-        sys.stdout.flush()
         client.run_until_disconnected()
 
     except FloodWaitError as e:

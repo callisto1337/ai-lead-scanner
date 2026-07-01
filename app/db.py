@@ -323,6 +323,7 @@ def count_final_feedback_since(since_iso):
     }
 
 def save_embedding(message_id, embedding):
+    init_db()
 
     with get_connection() as conn:
 
@@ -345,3 +346,21 @@ def save_embedding(message_id, embedding):
                 "paraphrase-multilingual-MiniLM-L12-v2"
             )
         )
+
+
+def get_messages_without_embeddings(limit=10):
+    init_db()
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT m.*
+            FROM messages m
+            LEFT JOIN message_embeddings e
+            ON e.message_id = m.id
+            WHERE e.id IS NULL
+            LIMIT {limit};
+            """
+        ).fetchall()
+
+    return rows
