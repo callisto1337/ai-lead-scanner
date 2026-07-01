@@ -19,7 +19,6 @@ LEADS_TOPIC_ID = int(os.getenv("LEADS_TOPIC_ID", "0"))
 PROMETHEUS_URL = "http://prometheus:9090"
 
 CHAR_REPLACEMENTS_FILE = CONFIG_DIR / "char_replacements.txt"
-BLACKLIST_PATH = CONFIG_DIR / "blacklist.txt"
 POSTGRES_DB = os.getenv("POSTGRES_DB", "")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")

@@ -1,9 +1,8 @@
 from telethon import events
-from app.db import save_seen_message, save_message
+from app.db import save_seen_message, save_message, is_blacklisted
 from app.settings import CHAT_ID
 from app.bot.sender import send_to_leads
 from app.utils import build_tg_link, get_hash
-from app.blacklist import is_blacklisted
 from app.sender_utils import enrich_sender_info
 from app.lead_processor import process_message
 

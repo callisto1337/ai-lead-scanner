@@ -1,7 +1,12 @@
 import html
 from telegram.ext import ContextTypes
-from app.blacklist import add_to_blacklist
-from app.db import now_iso, update_message_feedback, get_message
+from app.db import (
+    now_iso,
+    update_message_feedback,
+    get_message,
+    add_to_blacklist,
+    remove_from_blacklist
+)
 from app.metrics import lead_blocked, lead_approved, lead_rejected, lead_skipped
 from telegram import (
     InlineKeyboardMarkup,
@@ -10,12 +15,11 @@ from telegram import (
 
 from .keyboards import build_rating_keyboard, build_change_keyboard
 from .messages import build_lead_message, build_rater_info
-from .storage import remove_from_blacklist
 
 
 async def button_handler(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE,  # не удалять!!
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,  # не удалять!!
 ):
     query = update.callback_query
 
@@ -33,11 +37,11 @@ async def button_handler(
         )
         return
 
-    lead = get_message(message_id)
+    message = get_message(message_id)
 
-    if not lead:
+    if not message:
         await query.answer(
-            "Лид не найден",
+            "Сообщение не найдено",
             show_alert=True
         )
 
@@ -45,16 +49,18 @@ async def button_handler(
 
     if action == "change":
         await query.edit_message_text(
-            text=build_lead_message(lead),
+            text=build_lead_message(message),
             reply_markup=InlineKeyboardMarkup(
                 build_rating_keyboard(message_id)
             ),
             parse_mode="HTML"
         )
 
+        remove_from_blacklist(message.get("user_id"))
+
         return
 
-    previous_feedback = lead.get("feedback")
+    previous_feedback = message.get("feedback")
 
     if action == "good":
 
@@ -80,7 +86,7 @@ async def button_handler(
 
         lead_blocked()
         add_to_blacklist(
-            lead.get("user_id")
+            message.get("user_id")
         )
 
     elif action == "skip":
@@ -102,7 +108,7 @@ async def button_handler(
 
     if previous_feedback == "spam" and feedback != "spam":
         remove_from_blacklist(
-            lead.get("user_id")
+            message.get("user_id")
         )
 
     rater = build_rater_info(query.from_user)
@@ -123,7 +129,7 @@ async def button_handler(
 
     await query.edit_message_text(
         text=build_lead_message(
-            lead,
+            message,
             rating_block
         ),
         reply_markup=InlineKeyboardMarkup(
