@@ -35,7 +35,7 @@ async def handle_new_message(event):
 
     text = event.message.text or ""
     clean_text = text.strip()
-    short_text = clean_text[:100] + "..." if len(clean_text) > 100 else clean_text
+    short_text = clean_text[:150] + "..." if len(clean_text) > 150 else clean_text
 
     if not clean_text:
         return

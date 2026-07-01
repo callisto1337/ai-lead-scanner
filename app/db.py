@@ -45,7 +45,7 @@ def init_db():
             """
             CREATE TABLE IF NOT EXISTS message_feedback_events (
                 id BIGSERIAL PRIMARY KEY,
-                lead_id TEXT NOT NULL REFERENCES messages(id),
+                message_id TEXT NOT NULL REFERENCES messages(id),
                 previous_feedback TEXT,
                 new_feedback TEXT NOT NULL,
                 previous_human_lead BOOLEAN,

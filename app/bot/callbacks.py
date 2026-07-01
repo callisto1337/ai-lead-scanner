@@ -1,7 +1,7 @@
 import html
 from telegram.ext import ContextTypes
 from app.blacklist import add_to_blacklist
-from app.db import now_iso, update_message_feedback
+from app.db import now_iso, update_message_feedback, get_message, save_message
 from app.memory import save_memory, delete_memory
 from app.metrics import lead_blocked, lead_approved, lead_rejected, lead_skipped
 from telegram import (
@@ -11,12 +11,12 @@ from telegram import (
 
 from .keyboards import build_rating_keyboard, build_change_keyboard
 from .messages import build_lead_message, build_rater_info
-from .storage import load_pending_lead, remove_from_blacklist, save_pending_lead
+from .storage import remove_from_blacklist
 
 
 async def button_handler(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,  # не удалять!!
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,  # не удалять!!
 ):
     query = update.callback_query
 
@@ -26,7 +26,7 @@ async def button_handler(
     await query.answer()
 
     try:
-        action, lead_id = query.data.split(":", 1)
+        action, message_id = query.data.split(":", 1)
     except ValueError:
         await query.answer(
             "Некорректные данные кнопки",
@@ -34,7 +34,7 @@ async def button_handler(
         )
         return
 
-    lead = load_pending_lead(lead_id)
+    lead = get_message(message_id)
 
     if not lead:
         await query.answer(
@@ -48,7 +48,7 @@ async def button_handler(
         await query.edit_message_text(
             text=build_lead_message(lead),
             reply_markup=InlineKeyboardMarkup(
-                build_rating_keyboard(lead_id)
+                build_rating_keyboard(message_id)
             ),
             parse_mode="HTML"
         )
@@ -107,38 +107,19 @@ async def button_handler(
         )
 
     rater = build_rater_info(query.from_user)
-
     rated_at = now_iso()
 
-    # Old Telegram messages can still point to leads that exist only in JSON.
-    # Saving before the update guarantees the DB row exists for event history.
-    save_pending_lead(
-        lead_id,
-        lead
-    )
-
     update_message_feedback(
-        lead_id,
+        message_id,
         feedback,
         is_lead,
         rated_at,
         rater
     )
 
-    lead["feedback"] = feedback
-    lead["human_lead"] = is_lead
-    lead["rated_at"] = rated_at
-    lead["rated_by"] = rater
-
-    save_pending_lead(
-        lead_id,
-        lead,
-        save_vector=False
-    )
-
     if feedback not in ("spam", "skip"):
         save_memory({
-            "id": lead_id,
+            "id": message_id,
             "text": lead["text"],
             "lead": is_lead,
             "feedback": feedback,
@@ -147,7 +128,7 @@ async def button_handler(
             "rated_by": rater,
         })
     else:
-        delete_memory(lead_id)
+        delete_memory(message_id)
 
     rating_block = (
         f"{rating_text}\n"
@@ -160,7 +141,7 @@ async def button_handler(
             rating_block
         ),
         reply_markup=InlineKeyboardMarkup(
-            build_change_keyboard(lead_id)
+            build_change_keyboard(message_id)
         ),
         parse_mode="HTML"
     )

@@ -1,4 +1,5 @@
 from sentence_transformers import SentenceTransformer
+from app.db import save_embedding
 
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
@@ -23,3 +24,9 @@ def create_embedding(text: str):
     )
 
     return result.tolist()
+
+
+def save_message_embedding(message_id: str, text: str):
+    embedding = create_embedding(text)
+
+    save_embedding(message_id, embedding)

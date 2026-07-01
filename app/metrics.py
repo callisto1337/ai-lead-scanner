@@ -4,7 +4,6 @@ from prometheus_client import (
     Histogram
 )
 
-
 # --------------------
 # Метрики
 # --------------------
@@ -14,48 +13,40 @@ MESSAGES = Counter(
     "All received messages"
 )
 
-
 SPAM = Counter(
     "spam_total",
     "Filtered spam messages"
 )
-
 
 LEADS = Counter(
     "leads_total",
     "Detected leads"
 )
 
-
 LEADS_APPROVED = Counter(
     "leads_approved_total",
     "Approved leads by human"
 )
-
 
 LEADS_REJECTED = Counter(
     "leads_rejected_total",
     "Rejected leads by human"
 )
 
-
 LEADS_SKIPPED = Counter(
     "leads_skipped_total",
     "Skipped leads by human"
 )
-
 
 LEADS_BLOCKED = Counter(
     "leads_blocked_total",
     "Blocked leads by human"
 )
 
-
 AI_REQUESTS = Counter(
     "ai_requests_total",
     "Requests sent to AI"
 )
-
 
 AI_TIME = Histogram(
     "ai_response_seconds",

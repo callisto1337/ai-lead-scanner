@@ -11,7 +11,8 @@ from telegram.error import TimedOut, NetworkError, RetryAfter
 
 from .keyboards import build_rating_keyboard
 from .messages import build_lead_message
-from .storage import save_pending_lead
+from ..db import save_message
+from ..embeddings import save_message_embedding
 
 request = HTTPXRequest(
     connect_timeout=30,
@@ -27,10 +28,15 @@ bot = Bot(
 
 
 async def send_to_leads(result):
-    lead_id = str(uuid.uuid4())[:8]
+    message_id = str(uuid.uuid4())[:8]
 
-    save_pending_lead(
-        lead_id,
+    save_message(
+        message_id,
+        result
+    )
+
+    save_message_embedding(
+        message_id,
         result
     )
 
@@ -41,7 +47,7 @@ async def send_to_leads(result):
                 text=build_lead_message(result),
                 message_thread_id=LEADS_TOPIC_ID,
                 reply_markup=InlineKeyboardMarkup(
-                    build_rating_keyboard(lead_id)
+                    build_rating_keyboard(message_id)
                 ),
                 parse_mode="HTML"
             )
