@@ -1,4 +1,5 @@
-from app.utils import normalize, load_lines, is_duplicate, is_duplicate_but_not_previously_lead
+from app.db import get_seen_message
+from app.utils import normalize, load_lines, get_hash, is_similar_text
 
 STOPWORDS_LIST = load_lines("stopwords.txt")
 
@@ -18,6 +19,27 @@ def has_stopword(text):
             return word
 
     return None
+
+
+def is_duplicate(text):
+    normalized_text = normalize(text)
+    msg_hash = get_hash(normalized_text)
+    row = get_seen_message(msg_hash)
+
+    # точное совпадение по хэшу
+    for item in row:
+        if item.get("hash") == msg_hash:
+            return True
+
+    # проверка на похожесть
+    for item in row:
+        if is_similar_text(
+            normalized_text,
+            item["normalized_text"]
+        ):
+            return True
+
+    return False
 
 
 def prefilter_message(text):

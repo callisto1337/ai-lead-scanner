@@ -3,16 +3,11 @@ import re
 import hashlib
 import unicodedata
 from difflib import SequenceMatcher
-
-from app.db import get_seen_message
 from app.settings import (
     BASE_DIR,
     CHAR_REPLACEMENTS_FILE,
     DUPLICATE_SIMILARITY_THRESHOLD,
-    DUPLICATE_COMPARE_LIMIT,
-    SEEN_MESSAGES_PATH
 )
-from datetime import datetime
 
 INVISIBLE_CHARS_PATTERN = re.compile(
     r"[\u200b\u200c\u200d\u2060\ufeff\u00ad]"
@@ -49,14 +44,12 @@ def has_link(text):
 
 
 def load_char_replacements():
-    path = BASE_DIR / "config" / CHAR_REPLACEMENTS_FILE
-
-    if not path.exists():
+    if not CHAR_REPLACEMENTS_FILE.exists():
         return {}
 
     replacements = {}
 
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in CHAR_REPLACEMENTS_FILE.read_text(encoding="utf-8").splitlines():
         line = line.strip()
 
         if not line or line.startswith("#"):
@@ -103,27 +96,6 @@ def is_similar_text(first, second):
     ).ratio()
 
     return ratio >= DUPLICATE_SIMILARITY_THRESHOLD
-
-
-def is_duplicate(text):
-    normalized_text = normalize(text)
-    msg_hash = get_hash(normalized_text)
-    row = get_seen_message(msg_hash)
-
-    # точное совпадение по хэшу
-    for item in row:
-        if item.get("hash") == msg_hash:
-            return True
-
-    # проверка на похожесть
-    for item in row:
-        if is_similar_text(
-            normalized_text,
-            item["normalized_text"]
-        ):
-            return True
-
-    return False
 
 
 def normalize(text):

@@ -17,35 +17,21 @@ def format_config_list(items, fallback="Не указано"):
     )
 
 
-def build_memory_examples(text, limit=5):
-    rows = find_similar_messages(text, limit)
+def build_memory_examples(text):
+    rows = find_similar_messages(text, 5)
 
     if not rows:
         return "Пока нет похожих примеров."
 
     examples = []
 
-    print(
-        f'Похожие сообщения:',
-        flush=True
-    )
-
     for row in rows:
-        lead = (
-            "true"
-            if row["human_lead"]
-            else "false"
-        )
+        ai_lead = "true" if row["ai_lead"] else "false"
+        human_lead = "true" if row["human_lead"] else "false"
 
         examples.append(
-            f'- "{text}" => lead={lead} (distance={row["distance"]:.3f})'
+            f'- "{row["text"]}" => ai_lead={ai_lead}, human_lead={human_lead} (distance={row["distance"]:.3f})'
         )
-
-        print(
-            f'- "{text}" => lead={lead} (distance={row["distance"]:.3f})',
-            flush=True
-        )
-
 
     return "\n".join(examples)
 

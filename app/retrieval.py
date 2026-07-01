@@ -9,8 +9,10 @@ def find_similar_messages(text, limit=5):
         rows = conn.execute(
             """
             SELECT 
+                m.id,
                 m.text,
                 m.human_lead,
+                m.ai_lead,
                 m.feedback,
                 e.embedding <=> %s::vector AS distance
 
@@ -20,12 +22,14 @@ def find_similar_messages(text, limit=5):
                 ON m.id = e.message_id
 
             WHERE m.human_lead IS NOT NULL
+            AND e.embedding <=> %s::vector < 0.7
 
             ORDER BY distance
 
             LIMIT %s
             """,
             (
+                embedding,
                 embedding,
                 limit
             )

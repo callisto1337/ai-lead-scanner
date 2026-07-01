@@ -23,7 +23,8 @@ def init_db():
     with get_connection() as conn:
         conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS messages (
+            CREATE TABLE IF NOT EXISTS messages 
+            (
                 id TEXT PRIMARY KEY,
                 text TEXT NOT NULL,
                 description TEXT,
@@ -45,7 +46,8 @@ def init_db():
         )
         conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS message_feedback_events (
+            CREATE TABLE IF NOT EXISTS message_feedback_events 
+            (
                 id BIGSERIAL PRIMARY KEY,
                 message_id TEXT NOT NULL REFERENCES messages(id),
                 previous_feedback TEXT,
@@ -62,8 +64,24 @@ def init_db():
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS message_embeddings
+            (
+                id SERIAL PRIMARY KEY,
+                message_id TEXT NOT NULL
+                    REFERENCES messages (id)
+                    ON DELETE CASCADE,
+                embedding vector(384),
+                model TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE (message_id, model)
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS seen_messages
             (
+                id SERIAL PRIMARY KEY,
                 hash TEXT,
                 normalized_text TEXT,
                 created_at TIMESTAMPTZ NOT NULL
@@ -385,7 +403,7 @@ def save_seen_message(normalized_text):
         )
 
 
-def get_seen_message(msg_hash, limit=10):
+def get_seen_message(msg_hash):
     init_db()
 
     with get_connection() as conn:
@@ -394,7 +412,7 @@ def get_seen_message(msg_hash, limit=10):
             SELECT id
             FROM seen_messages
             WHERE hash = %s
-            LIMIT {limit}
+            LIMIT 1
             """,
             (msg_hash,)
         ).fetchall()

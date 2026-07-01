@@ -27,11 +27,8 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL",
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:5432/{POSTGRES_DB}"
 )
-SEEN_MESSAGES_PATH = CONFIG_DIR / "seen_messages.json"
 
 DUPLICATE_SIMILARITY_THRESHOLD = float(
     os.getenv("DUPLICATE_SIMILARITY_THRESHOLD", "0.9")
 )
-DUPLICATE_COMPARE_LIMIT = int(
-    os.getenv("DUPLICATE_COMPARE_LIMIT", "500")
-)
+
