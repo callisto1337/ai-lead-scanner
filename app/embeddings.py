@@ -30,3 +30,6 @@ def save_message_embedding(message_id: str, text: str):
     embedding = create_embedding(text)
 
     save_embedding(message_id, embedding)
+
+def embedding_to_pgvector(vector):
+    return str(vector)

@@ -1,4 +1,3 @@
-import uuid
 import asyncio
 from telegram import (
     Bot,
@@ -11,8 +10,6 @@ from telegram.error import TimedOut, NetworkError, RetryAfter
 
 from .keyboards import build_rating_keyboard
 from .messages import build_lead_message
-from ..db import save_message
-from ..embeddings import save_message_embedding
 
 request = HTTPXRequest(
     connect_timeout=30,
@@ -27,14 +24,7 @@ bot = Bot(
 )
 
 
-async def send_to_leads(result):
-    message_id = str(uuid.uuid4())[:8]
-
-    save_message(
-        message_id,
-        result
-    )
-
+async def send_to_leads(message_id: str, result):
     for attempt in range(3):
         try:
             await bot.send_message(

@@ -3,6 +3,8 @@ import re
 import hashlib
 import unicodedata
 from difflib import SequenceMatcher
+
+from app.db import get_seen_message
 from app.settings import (
     BASE_DIR,
     CHAR_REPLACEMENTS_FILE,
@@ -11,7 +13,6 @@ from app.settings import (
     SEEN_MESSAGES_PATH
 )
 from datetime import datetime
-
 
 INVISIBLE_CHARS_PATTERN = re.compile(
     r"[\u200b\u200c\u200d\u2060\ufeff\u00ad]"
@@ -104,121 +105,25 @@ def is_similar_text(first, second):
     return ratio >= DUPLICATE_SIMILARITY_THRESHOLD
 
 
-def ensure_seen_messages_storage():
-    path = SEEN_MESSAGES_PATH
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    if not path.exists():
-        path.write_text(
-            "[]",
-            encoding="utf-8"
-        )
-
-
 def is_duplicate(text):
-    """Проверяет, был ли уже похожий/тот же текст. Если да — возвращает True и не добавляет запись.
-    Иначе сохраняет информацию об увиденном сообщении и возвращает False.
-    """
-    path = SEEN_MESSAGES_PATH
-    ensure_seen_messages_storage()
-
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        data = []
-
     normalized_text = normalize(text)
-    msg_hash = get_hash(text)
+    msg_hash = get_hash(normalized_text)
+    row = get_seen_message(msg_hash)
 
     # точное совпадение по хэшу
-    for item in data:
+    for item in row:
         if item.get("hash") == msg_hash:
             return True
 
-    # похожие по содержанию среди последних записей
-    recent_items = data[-DUPLICATE_COMPARE_LIMIT:]
-
-    for item in recent_items:
-        previous_text = item.get("text", "")
-        if is_similar_text(normalized_text, previous_text):
+    # проверка на похожесть
+    for item in row:
+        if is_similar_text(
+            normalized_text,
+            item["normalized_text"]
+        ):
             return True
-
-    # сохранить запись о увиденном сообщении
-    now = datetime.now()
-
-    data.append({
-        "hash": msg_hash,
-        "time": str(now),
-        "text": normalized_text,
-    })
-
-    # храним последние 5000
-    data = data[-5000:]
-
-    path.write_text(
-        json.dumps(data, ensure_ascii=False),
-        encoding="utf-8"
-    )
 
     return False
-
-
-def is_duplicate_but_not_previously_lead(text) -> bool:
-    """Возвращает True, если сообщение дубликат и ранее похожие сообщения НЕ были помечены как лид.
-
-    Если же найден похожий в памяти элемент, помеченный как lead (lead == True),
-    считаем, что это не спам и возвращаем False.
-    """
-    # убедимся, что файл для увиденных сообщений существует
-    ensure_seen_messages_storage()
-
-    # повторим логику определения дубля, но без записи и с проверкой памяти
-    path = SEEN_MESSAGES_PATH
-
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        data = []
-
-    normalized_text = normalize(text)
-    msg_hash = get_hash(text)
-
-    duplicate = False
-
-    for item in data:
-        if item.get("hash") == msg_hash:
-            duplicate = True
-            break
-
-    if not duplicate:
-        recent_items = data[-DUPLICATE_COMPARE_LIMIT:]
-
-        for item in recent_items:
-            previous_text = item.get("text", "")
-
-            if is_similar_text(normalized_text, previous_text):
-                duplicate = True
-                break
-
-    if not duplicate:
-        return False
-
-    # Если дубликат — проверить память о помеченных лидах
-    try:
-        from memory import load_memory
-
-        memory = load_memory()
-    except Exception:
-        memory = []
-
-    for mem in memory:
-        mem_text = mem.get("text", "")
-        if is_similar_text(normalized_text, normalize(mem_text)) and mem.get("lead"):
-            # ранее похожее сообщение было признано лидом — не считать текущий спамом
-            return False
-
-    # дубликат и похожих лидов в памяти не найдено — считаем спамом
-    return True
 
 
 def normalize(text):

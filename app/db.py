@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
+import uuid
 
 import psycopg
 from psycopg.rows import dict_row
 
 from app.settings import DATABASE_URL
+from app.utils import get_hash
 
 
 def now_iso() -> str:
@@ -58,29 +60,13 @@ def init_db():
             )
             """
         )
-
         conn.execute(
             """
-            CREATE EXTENSION IF NOT EXISTS vector;
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS message_embeddings
+            CREATE TABLE IF NOT EXISTS seen_messages
             (
-                id         SERIAL PRIMARY KEY,
-
-                message_id TEXT NOT NULL
-                    REFERENCES messages (id)
-                        ON DELETE CASCADE,
-
-                embedding  vector(384),
-
-                model      TEXT NOT NULL,
-
-                created_at TIMESTAMPTZ DEFAULT NOW(),
-
-                UNIQUE (message_id, model)
+                hash TEXT,
+                normalized_text TEXT,
+                created_at TIMESTAMPTZ NOT NULL
             )
             """
         )
@@ -101,6 +87,12 @@ def init_db():
             """
             CREATE INDEX IF NOT EXISTS idx_feedback_events_messages_id
                 ON message_feedback_events(message_id)
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE EXTENSION IF NOT EXISTS vector;
             """
         )
 
@@ -152,9 +144,10 @@ def _message_from_row(row):
     return message
 
 
-def save_message(message_id, data):
+def save_message(data):
     init_db()
 
+    message_id = str(uuid.uuid4())[:8]
     now = now_iso()
     detected_at = data.get("detected_at") or data.get("created_at") or now
     rated_by = data.get("rated_by") or {}
@@ -215,6 +208,8 @@ def save_message(message_id, data):
                 now,
             )
         )
+
+    return message_id
 
 
 def get_message(message_id):
@@ -361,6 +356,47 @@ def get_messages_without_embeddings(limit=10):
             WHERE e.id IS NULL
             LIMIT {limit};
             """
+        ).fetchall()
+
+    return rows
+
+
+def save_seen_message(normalized_text):
+    init_db()
+
+    msg_hash = get_hash(normalized_text)
+
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO seen_messages
+            (
+                hash,
+                normalized_text,
+                created_at
+            )
+            VALUES (%s, %s, %s)
+            """,
+            (
+                msg_hash,
+                normalized_text,
+                datetime.now(timezone.utc)
+            )
+        )
+
+
+def get_seen_message(msg_hash, limit=10):
+    init_db()
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT id
+            FROM seen_messages
+            WHERE hash = %s
+            LIMIT {limit}
+            """,
+            (msg_hash,)
         ).fetchall()
 
     return rows

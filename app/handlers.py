@@ -1,7 +1,8 @@
 from telethon import events
+from app.db import save_seen_message, save_message
 from app.settings import CHAT_ID
 from app.bot.sender import send_to_leads
-from app.utils import build_tg_link
+from app.utils import build_tg_link, get_hash
 from app.blacklist import is_blacklisted
 from app.sender_utils import enrich_sender_info
 from app.lead_processor import process_message
@@ -40,9 +41,12 @@ async def handle_new_message(event):
     if not clean_text:
         return
 
+
     print("💬 Новое сообщение:", short_text, flush=True)
 
     result = process_message(clean_text)
+
+    save_seen_message(clean_text)
 
     if not result:
         print("---------------", flush=True)
@@ -62,8 +66,10 @@ async def handle_new_message(event):
         result["link"] = await build_tg_link(event)
 
         try:
+            message_id = save_message(result)
             sent = await send_to_leads(
-                result,
+                message_id,
+                result
             )
 
             if not sent:

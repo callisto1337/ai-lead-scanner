@@ -10,13 +10,6 @@ def reject(reason):
     }
 
 
-def accept():
-    return {
-        "ok": True,
-        "reason": None,
-    }
-
-
 def has_stopword(text):
     text_lower = normalize(text)
 
@@ -38,9 +31,7 @@ def prefilter_message(text):
 
     # Сначала проверяем/сохраняем увиденное сообщение
     if is_duplicate(clean_text):
-        # Если это дубликат — решаем, считать ли его спамом с учётом памяти о лидах
-        if is_duplicate_but_not_previously_lead(clean_text):
-            return reject("Спам / дубль сообщения")
+        return reject("Спам / дубль сообщения")
 
     if len(clean_text) > 1000:
         return reject("Сообщение слишком длинное")
@@ -53,4 +44,7 @@ def prefilter_message(text):
     if stopword:
         return reject(f"Сообщение отфильтровано стоп-словом: {stopword}")
 
-    return accept()
+    return {
+        "ok": True,
+        "reason": None,
+    }

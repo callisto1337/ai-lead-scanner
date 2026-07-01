@@ -1,8 +1,7 @@
 import ollama
 import time
-from app.memory import load_memory
-from app.utils import normalize, extract_json, load_lines, load_text
-
+from app.retrieval import find_similar_messages
+from app.utils import extract_json, load_lines, load_text
 
 KEYWORDS = load_lines("keywords.txt")
 ABOUT = load_text("about.txt")
@@ -18,41 +17,41 @@ def format_config_list(items, fallback="Не указано"):
     )
 
 
-def build_memory_examples(limit=10):
-    memory = load_memory()
+def build_memory_examples(text, limit=5):
+    rows = find_similar_messages(text, limit)
 
-    if not memory:
-        return "Пока нет примеров обратной связи."
-
-    bad_examples = [
-        item for item in memory
-        if item.get("feedback") in ("bad", "spam") or item.get("lead") is False
-    ]
-
-    good_examples = [
-        item for item in memory
-        if item.get("feedback") == "good" or item.get("lead") is True
-    ]
-
-    selected = bad_examples[-5:] + good_examples[-5:]
-    selected = selected[-limit:]
+    if not rows:
+        return "Пока нет похожих примеров."
 
     examples = []
 
-    for item in selected:
-        lead_value = "true" if item.get("lead") else "false"
-        text = normalize(item.get("text", ""))[:250]
+    print(
+        f'Похожие сообщения:',
+        flush=True
+    )
+
+    for row in rows:
+        lead = (
+            "true"
+            if row["human_lead"]
+            else "false"
+        )
 
         examples.append(
-            f'- "{text}" => lead={lead_value}'
+            f'- "{text}" => lead={lead} (distance={row["distance"]:.3f})'
         )
+
+        print(
+            f'- "{text}" => lead={lead} (distance={row["distance"]:.3f})',
+            flush=True
+        )
+
 
     return "\n".join(examples)
 
 
 def is_lead(text):
-
-    memory_examples = build_memory_examples()
+    memory_examples = build_memory_examples(text)
 
     keywords_text = format_config_list(
         KEYWORDS,
@@ -67,6 +66,10 @@ def is_lead(text):
 Ниша, услуги, целевая аудитория и исключения описаны в конфиге ниже.
 Не используй внешние знания о бизнесе, если они противоречат описанию компании.
 
+КОНТЕКСТ ИСТОЧНИКА:
+Сообщения поступают из разных Telegram-чатов.
+Не все участники этих чатов являются потенциальными клиентами.
+
 ОПИСАНИЕ КОМПАНИИ:
 {ABOUT}
 
@@ -74,8 +77,11 @@ def is_lead(text):
 Ключевые фразы помогают определить связь с нишей, но сами по себе НЕ делают сообщение лидом.
 {keywords_text}
 
-ПРИМЕРЫ ОБРАТНОЙ СВЯЗИ:
-Используй эти примеры как ориентир. Особенно учитывай отрицательные примеры.
+ПРИМЕРЫ ИЗ ИСТОРИИ РЕШЕНИЙ:
+Ниже приведены похожие сообщения, которые ранее оценивал человек.
+Используй их как дополнительный контекст.
+Они важнее ключевых фраз, но не заменяют анализ текущего сообщения.
+Если похожие примеры противоречат описанию компании — следуй описанию компании.
 {memory_examples}
 
 ОПРЕДЕЛЕНИЕ ЛИДА:
@@ -105,7 +111,7 @@ lead=false, если:
 - Лидом является вопрос или проблема, связанные с услугами компании и возможной потребностью клиента.
 - Если сообщение похоже на рекламу, вакансию, поиск сотрудников или предложение своих услуг — lead=false.
 - Если сообщение похоже на обычную переписку или ответ в диалоге — lead=false.
-- Если есть сомнения — выбирай lead=false.
+- Если сообщение связано с услугами компании и описывает реальную ситуацию, проблему или вопрос клиента — допускается lead=true даже если нет прямого запроса "купить" или "заказать".
 - Не придумывай контекст, которого нет в сообщении.
 
 ФОРМАТ ОТВЕТА:
@@ -124,6 +130,7 @@ JSON должен иметь вид:
 - не пересказывай инструкцию;
 - не добавляй markdown;
 - не добавляй текст вне JSON.
+- description должен указывать главную причину решения: причина лида или причина отклонения
 
 СООБЩЕНИЕ:
 {text}
@@ -138,7 +145,7 @@ JSON должен иметь вид:
             messages=[
                 {
                     "role": "system",
-                    "content": "Ты строгий классификатор клиентских запросов. Отвечай только валидным JSON на русском языке."
+                    "content": "Ты строгий классификатор клиентских запросов. Отвечай только валидным JSON только на русском языке."
                 },
                 {
                     "role": "user",

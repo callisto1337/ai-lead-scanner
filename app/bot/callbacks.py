@@ -1,8 +1,7 @@
 import html
 from telegram.ext import ContextTypes
 from app.blacklist import add_to_blacklist
-from app.db import now_iso, update_message_feedback, get_message, save_message
-from app.memory import save_memory, delete_memory
+from app.db import now_iso, update_message_feedback, get_message
 from app.metrics import lead_blocked, lead_approved, lead_rejected, lead_skipped
 from telegram import (
     InlineKeyboardMarkup,
@@ -116,19 +115,6 @@ async def button_handler(
         rated_at,
         rater
     )
-
-    if feedback not in ("spam", "skip"):
-        save_memory({
-            "id": message_id,
-            "text": lead["text"],
-            "lead": is_lead,
-            "feedback": feedback,
-            "time": rated_at,
-            "description": lead["description"],
-            "rated_by": rater,
-        })
-    else:
-        delete_memory(message_id)
 
     rating_block = (
         f"{rating_text}\n"
