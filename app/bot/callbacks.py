@@ -1,7 +1,7 @@
 import html
 from telegram.ext import ContextTypes
 from app.blacklist import add_to_blacklist
-from app.db import now_iso, update_lead_feedback
+from app.db import now_iso, update_message_feedback
 from app.memory import save_memory, delete_memory
 from app.metrics import lead_blocked, lead_approved, lead_rejected, lead_skipped
 from telegram import (
@@ -117,7 +117,7 @@ async def button_handler(
         lead
     )
 
-    update_lead_feedback(
+    update_message_feedback(
         lead_id,
         feedback,
         is_lead,

@@ -22,9 +22,12 @@ PROMETHEUS_URL = "http://prometheus:9090"
 CHAR_REPLACEMENTS_FILE = CONFIG_DIR / "char_replacements.txt"
 BLACKLIST_PATH = CONFIG_DIR / "blacklist.txt"
 PENDING_LEADS_PATH = CONFIG_DIR / "pending_leads.json"
+POSTGRES_DB = os.getenv("POSTGRES_DB", "")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD","")
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://lead_scanner:lead_scanner_password@localhost:5432/lead_scanner"
+    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:5432/{POSTGRES_DB}"
 )
 SEEN_MESSAGES_PATH = CONFIG_DIR / "seen_messages.json"
 
