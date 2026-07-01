@@ -1,7 +1,8 @@
 import json
 
-from app.db import get_message, save_message
+from app.db import get_message, save_message, save_embedding
 from app.settings import BLACKLIST_PATH, PENDING_LEADS_PATH
+from app.embeddings import create_embedding
 
 
 def ensure_pending_storage():
@@ -37,7 +38,7 @@ def load_pending_lead(message_id):
     return load_pending_leads().get(message_id)
 
 
-def save_pending_lead(message_id, data):
+def save_pending_lead(message_id, data, save_vector: bool = True):
     storage = load_pending_leads()
     storage[message_id] = data
 
@@ -54,6 +55,14 @@ def save_pending_lead(message_id, data):
         message_id,
         data
     )
+
+    if save_vector:
+        embedding = create_embedding(data["text"])
+
+        save_embedding(
+            message_id,
+            embedding
+        )
 
 
 def remove_from_blacklist(value):

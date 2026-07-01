@@ -15,8 +15,8 @@ from .storage import load_pending_lead, remove_from_blacklist, save_pending_lead
 
 
 async def button_handler(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE,  # не удалять!!
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,  # не удалять!!
 ):
     query = update.callback_query
 
@@ -132,7 +132,8 @@ async def button_handler(
 
     save_pending_lead(
         lead_id,
-        lead
+        lead,
+        save_vector=False
     )
 
     if feedback not in ("spam", "skip"):

@@ -4,7 +4,6 @@ import os
 
 load_dotenv()
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = BASE_DIR / "config"
 SESSIONS_DIR = BASE_DIR / "sessions"
@@ -21,10 +20,9 @@ PROMETHEUS_URL = "http://prometheus:9090"
 
 CHAR_REPLACEMENTS_FILE = CONFIG_DIR / "char_replacements.txt"
 BLACKLIST_PATH = CONFIG_DIR / "blacklist.txt"
-PENDING_LEADS_PATH = CONFIG_DIR / "pending_leads.json"
 POSTGRES_DB = os.getenv("POSTGRES_DB", "")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD","")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:5432/{POSTGRES_DB}"
@@ -37,4 +35,3 @@ DUPLICATE_SIMILARITY_THRESHOLD = float(
 DUPLICATE_COMPARE_LIMIT = int(
     os.getenv("DUPLICATE_COMPARE_LIMIT", "500")
 )
-

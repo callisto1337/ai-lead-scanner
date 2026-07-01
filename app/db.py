@@ -58,21 +58,48 @@ def init_db():
             )
             """
         )
+
         conn.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_leads_detected_at
+            CREATE EXTENSION IF NOT EXISTS vector;
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS message_embeddings
+            (
+                id         SERIAL PRIMARY KEY,
+
+                message_id TEXT NOT NULL
+                    REFERENCES messages (id)
+                        ON DELETE CASCADE,
+
+                embedding  vector(384),
+
+                model      TEXT NOT NULL,
+
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+
+                UNIQUE (message_id, model)
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_messages_detected_at
                 ON messages(detected_at)
             """
         )
         conn.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_leads_rated_at
+            CREATE INDEX IF NOT EXISTS idx_messages_rated_at
                 ON messages(rated_at)
             """
         )
         conn.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_feedback_events_lead_id
+            CREATE INDEX IF NOT EXISTS idx_feedback_events_messages_id
                 ON message_feedback_events(message_id)
             """
         )
@@ -294,3 +321,27 @@ def count_final_feedback_since(since_iso):
         row["feedback"]: row["total"]
         for row in rows
     }
+
+def save_embedding(message_id, embedding):
+
+    with get_connection() as conn:
+
+        conn.execute(
+            """
+            INSERT INTO message_embeddings
+            (
+                message_id,
+                embedding,
+                model
+            )
+            VALUES (%s,%s,%s)
+
+            ON CONFLICT(message_id, model)
+            DO NOTHING
+            """,
+            (
+                message_id,
+                embedding,
+                "paraphrase-multilingual-MiniLM-L12-v2"
+            )
+        )
