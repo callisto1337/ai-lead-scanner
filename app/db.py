@@ -23,6 +23,12 @@ def init_db():
     with get_connection() as conn:
         conn.execute(
             """
+            CREATE EXTENSION IF NOT EXISTS vector;
+            """
+        )
+
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS messages 
             (
                 id TEXT PRIMARY KEY,
@@ -117,12 +123,6 @@ def init_db():
             """
             CREATE INDEX IF NOT EXISTS idx_feedback_events_messages_id
                 ON message_feedback_events(message_id)
-            """
-        )
-
-        conn.execute(
-            """
-            CREATE EXTENSION IF NOT EXISTS vector;
             """
         )
 
