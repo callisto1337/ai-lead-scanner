@@ -415,21 +415,21 @@ def save_seen_message(normalized_text):
         )
 
 
-def get_seen_message(msg_hash):
+def exists_seen_message(msg_hash: str) -> bool:
     init_db()
 
     with get_connection() as conn:
-        rows = conn.execute(
-            f"""
-            SELECT id
+        row = conn.execute(
+            """
+            SELECT 1
             FROM seen_messages
             WHERE hash = %s
             LIMIT 1
             """,
             (msg_hash,)
-        ).fetchall()
+        ).fetchone()
 
-    return rows
+    return row is not None
 
 
 def add_to_blacklist(

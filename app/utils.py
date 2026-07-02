@@ -2,11 +2,9 @@ import json
 import re
 import hashlib
 import unicodedata
-from difflib import SequenceMatcher
 from app.settings import (
     BASE_DIR,
     CHAR_REPLACEMENTS_FILE,
-    DUPLICATE_SIMILARITY_THRESHOLD,
 )
 
 INVISIBLE_CHARS_PATTERN = re.compile(
@@ -80,22 +78,6 @@ def apply_char_replacements(text):
 def get_hash(text):
     text = normalize(text)
     return hashlib.md5(text.encode()).hexdigest()
-
-
-def is_similar_text(first, second):
-    if not first or not second:
-        return False
-
-    if min(len(first), len(second)) < 20:
-        return False
-
-    ratio = SequenceMatcher(
-        None,
-        first,
-        second
-    ).ratio()
-
-    return ratio >= DUPLICATE_SIMILARITY_THRESHOLD
 
 
 def normalize(text):

@@ -27,7 +27,4 @@ DATABASE_URL = os.getenv(
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:5432/{POSTGRES_DB}"
 )
 
-DUPLICATE_SIMILARITY_THRESHOLD = float(
-    os.getenv("DUPLICATE_SIMILARITY_THRESHOLD", "0.9")
-)
 
