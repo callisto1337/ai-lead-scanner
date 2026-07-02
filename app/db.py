@@ -437,6 +437,8 @@ def add_to_blacklist(
     created_by: int | None = None,
     reason: str = "spam"
 ):
+    init_db()
+
     if not user_id:
         return
 
@@ -465,6 +467,8 @@ def add_to_blacklist(
 
 
 def is_blacklisted(user_id: int) -> bool:
+    init_db()
+
     if not user_id:
         return False
 
@@ -482,6 +486,8 @@ def is_blacklisted(user_id: int) -> bool:
 
 
 def remove_from_blacklist(user_id: int):
+    init_db()
+
     if not user_id:
         return False
 
