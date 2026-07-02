@@ -36,15 +36,13 @@ def build_rater_info(user):
 
 
 def build_lead_message(lead, rating_block=None, reply_text: str | None = None):
-    reply_block = f"\n\n💬 Ответ на сообщение:\n<pre>{reply_text}</pre>" if reply_text else ""
+    reply_block = f"\n💬 Ответ на сообщение:\n<pre>{reply_text}</pre>\n" if reply_text else ""
     message = f"""
     🔥 НОВЫЙ ЛИД
 
 💬 Сообщение:
 <pre>{html.escape(lead["text"])}</pre>
-
 {reply_block}
-
 👤 Пользователь:
 {lead.get("user_link", "нет ссылки")}
 
