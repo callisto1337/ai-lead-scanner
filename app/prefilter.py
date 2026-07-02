@@ -4,14 +4,14 @@ from app.utils import normalize, load_lines, get_hash
 STOPWORDS_LIST = load_lines("stopwords.txt")
 
 
-def reject(reason):
+def reject(reason) -> object:
     return {
         "ok": False,
         "reason": reason,
     }
 
 
-def has_stopword(text):
+def has_stopword(text: str):
     text_lower = normalize(text)
 
     for word in STOPWORDS_LIST:
@@ -28,7 +28,7 @@ def is_duplicate(text: str) -> bool:
     return exists_seen_message(msg_hash)
 
 
-def prefilter_message(text):
+def prefilter_message(text: str) -> object:
     if not text:
         return reject("Пустое сообщение")
 

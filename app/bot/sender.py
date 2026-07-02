@@ -24,12 +24,15 @@ bot = Bot(
 )
 
 
-async def send_to_leads(message_id: str, result):
+async def send_to_leads(message_id: str, result, reply_text: str | None = None):
     for attempt in range(3):
         try:
             await bot.send_message(
                 chat_id=CHAT_ID,
-                text=build_lead_message(result),
+                text=build_lead_message(
+                    lead=result,
+                    reply_text=reply_text
+                ),
                 message_thread_id=LEADS_TOPIC_ID,
                 reply_markup=InlineKeyboardMarkup(
                     build_rating_keyboard(message_id)
