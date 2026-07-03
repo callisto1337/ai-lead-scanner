@@ -81,7 +81,7 @@ async def handle_new_message(event):
         context = get_context_chain(
             tg_chat_id=event.chat_id,
             tg_message_id=event.message.id,
-            reply_to_tg_message_id=event.message.reply_to_msg_id,
+            reply_to_id=event.message.reply_to_msg_id,
         )
 
         try:

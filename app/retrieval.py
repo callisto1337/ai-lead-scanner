@@ -12,6 +12,9 @@ def find_similar_messages(text, limit=5):
                 m.id,
                 m.text,
                 m.human_lead,
+                m.tg_message_id,
+                m.tg_chat_id,
+                m.reply_to_id,
                 m.ai_lead,
                 m.feedback,
                 e.embedding <=> %s::vector AS distance

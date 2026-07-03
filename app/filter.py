@@ -1,8 +1,9 @@
 import ollama
 import time
 
-from app.db import get_message_by_id, get_context_chain
+from app.db import get_context_chain, get_message_by_tg_id
 from app.retrieval import find_similar_messages
+from app.types import TG_MESSAGE_ID
 from app.utils import extract_json, load_lines, load_text
 
 KEYWORDS = load_lines("keywords.txt")
@@ -19,25 +20,7 @@ def format_config_list(items, fallback="Не указано"):
     )
 
 
-def build_message_chain(message_id, depth=5):
-    chain = []
-    current_id = message_id
-
-    while current_id and len(chain) < depth:
-        row = get_message_by_id(current_id)
-
-        if not row:
-            break
-
-        chain.append(row["text"])
-        current_id = row["reply_to_id"]
-
-    chain.reverse()
-
-    return chain
-
-
-def build_memory_examples(text):
+def build_memory_examples(text: str):
     rows = find_similar_messages(text, 5)
 
     if not rows:
@@ -49,7 +32,14 @@ def build_memory_examples(text):
         ai_lead = "true" if row["ai_lead"] else "false"
         human_lead = "true" if row["human_lead"] else "false"
 
-        chain = build_message_chain(row["id"])
+        chain = get_context_chain(
+            tg_chat_id=row.get("tg_chat_id"),
+            tg_message_id=row.get("tg_message_id"),
+            reply_to_id=row.get("reply_to_id"),
+        )
+
+        if not chain:
+            continue
 
         example = []
 
@@ -59,7 +49,6 @@ def build_memory_examples(text):
             for msg in chain[:-1]:
                 example.append(f"- {msg}")
 
-        # TODO сейчас сообщение отображается без контекста ("мне тоже нужно" и тд)
         example.append(f'Сообщение: "{chain[-1]}"')
         example.append(
             f"Результат: ai_lead={ai_lead}, human_lead={human_lead}"
@@ -73,9 +62,10 @@ def is_lead(
     text: str,
     tg_chat_id: int,
     tg_message_id: int,
-    reply_tg_message_id: int | None
+    reply_tg_message_id: TG_MESSAGE_ID | None
 ):
     memory_examples = build_memory_examples(text)
+    reply_message_id = get_message_by_tg_id(reply_tg_message_id)
     keywords_text = format_config_list(
         KEYWORDS,
         "Ключевые фразы не указаны."
@@ -83,7 +73,7 @@ def is_lead(
     context_chain = get_context_chain(
         tg_chat_id=tg_chat_id,
         tg_message_id=tg_message_id,
-        reply_to_tg_message_id=reply_tg_message_id
+        reply_to_id=reply_message_id
     )
 
     context_block = ""

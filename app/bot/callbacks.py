@@ -5,7 +5,8 @@ from app.db import (
     update_message_feedback,
     add_to_blacklist,
     remove_from_blacklist,
-    get_message_by_id, get_context_chain
+    get_message_by_id,
+    get_context_chain
 )
 from app.metrics import lead_blocked, lead_approved, lead_rejected, lead_skipped
 from telegram import (
@@ -40,7 +41,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context_chain = get_context_chain(
         tg_chat_id=message.get("tg_chat_id"),
         tg_message_id=message.get("tg_message_id"),
-        reply_to_tg_message_id=message.get("reply_to_tg_message_id")
+        reply_to_id=message.get("reply_to_tg_message_id")
     )
 
     if not message:

@@ -5,6 +5,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 from app.settings import DATABASE_URL
+from app.types import MESSAGE_ID, TG_MESSAGE_ID
 from app.utils import get_hash
 
 
@@ -523,8 +524,11 @@ def get_message_by_id(message_id: str):
         ).fetchone()
 
 
-def get_message_by_tg_id(tg_message_id: int):
+def get_message_by_tg_id(tg_message_id: TG_MESSAGE_ID | None):
     init_db()
+
+    if not tg_message_id:
+        return None
 
     with get_connection() as conn:
         return conn.execute(
@@ -546,9 +550,7 @@ def get_reply_chain(message_id: str, limit: int = 3) -> list[str]:
         while current_id and len(chain) < limit:
             row = conn.execute(
                 """
-                SELECT
-                    text,
-                    reply_to_id
+                SELECT text, reply_to_id
                 FROM messages
                 WHERE id = %s
                 """,
@@ -561,24 +563,10 @@ def get_reply_chain(message_id: str, limit: int = 3) -> list[str]:
             chain.append(row["text"])
             current_id = row["reply_to_id"]
 
-    chain.reverse()
-    return chain
+    return list(reversed(chain))
 
 
-def get_reply_chain_from_tg_id(reply_to_tg_message_id: int, limit=3):
-    parent = get_message_by_tg_id(reply_to_tg_message_id)
-
-    if not parent:
-        return []
-
-    return get_reply_chain(parent["id"], limit)
-
-
-def get_chat_history(
-    tg_chat_id: int,
-    before_tg_message_id: int,
-    limit: int = 3
-) -> list[str]:
+def get_chat_history(tg_chat_id: int, tg_message_id: int, limit: int = 3):
     with get_connection() as conn:
         rows = conn.execute(
             """
@@ -589,33 +577,30 @@ def get_chat_history(
             ORDER BY tg_message_id DESC
             LIMIT %s
             """,
-            (
-                tg_chat_id,
-                before_tg_message_id,
-                limit
-            )
+            (tg_chat_id, tg_message_id, limit)
         ).fetchall()
 
-    return [row["text"] for row in reversed(rows)]
+    return [r["text"] for r in reversed(rows)]
 
 
 def get_context_chain(
     tg_chat_id: int,
-    tg_message_id: int,
-    reply_to_tg_message_id: int | None,
+    tg_message_id: TG_MESSAGE_ID,
+    reply_to_id: MESSAGE_ID | None = None,
     limit: int = 3,
+    message_id: MESSAGE_ID | None = None,
 ) -> list[str]:
-    if reply_to_tg_message_id:
-        chain = get_reply_chain_from_tg_id(
-            reply_to_tg_message_id,
-            limit,
-        )
+
+    # 1. reply-chain (если есть связь)
+    if reply_to_id:
+        chain = get_reply_chain(reply_to_id, limit)
 
         if chain:
             return chain
 
+    # 2. fallback: последние сообщения чата
     return get_chat_history(
         tg_chat_id,
         tg_message_id,
-        limit,
+        limit
     )
