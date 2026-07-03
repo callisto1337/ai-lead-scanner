@@ -59,12 +59,11 @@ def build_memory_examples(text):
             for msg in chain[:-1]:
                 example.append(f"- {msg}")
 
+        # TODO сейчас сообщение отображается без контекста ("мне тоже нужно" и тд)
         example.append(f'Сообщение: "{chain[-1]}"')
-
         example.append(
             f"Результат: ai_lead={ai_lead}, human_lead={human_lead}"
         )
-
         examples.append("\n".join(example))
 
     return "\n\n".join(examples)
