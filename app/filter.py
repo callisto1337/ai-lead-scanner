@@ -59,7 +59,7 @@ def build_memory_examples(text):
             for msg in chain[:-1]:
                 example.append(f"- {msg}")
 
-        example.append(f'Текущее сообщение: "{chain[-1]}"')
+        example.append(f'Сообщение: "{chain[-1]}"')
 
         example.append(
             f"Результат: ai_lead={ai_lead}, human_lead={human_lead}"
@@ -81,7 +81,7 @@ def is_lead(
         KEYWORDS,
         "Ключевые фразы не указаны."
     )
-    reply_chain = get_context_chain(
+    context_chain = get_context_chain(
         tg_chat_id=tg_chat_id,
         tg_message_id=tg_message_id,
         reply_to_tg_message_id=reply_tg_message_id
@@ -89,16 +89,15 @@ def is_lead(
 
     context_block = ""
 
-    if len(reply_chain) > 1:
+    if len(context_chain) > 1:
         context_block = f"""
-    КОНТЕКСТ ДИАЛОГА
+КОНТЕКСТ ДИАЛОГА
+Ниже приведены предыдущие сообщения этой ветки:
 
-    Ниже приведены предыдущие сообщения этой ветки:
+{chr(10).join(f"- {m}" for m in context_chain[:-1])}
 
-    {chr(10).join(f"- {m}" for m in reply_chain[:-1])}
-
-    Используй их только для понимания смысла последнего сообщения.
-    """ if len(chain) else ""
+Используй их только для понимания смысла последнего сообщения.
+""" if len(context_chain) else ""
 
     prompt = f"""
 Ты AI-классификатор лидов из Telegram.
@@ -122,7 +121,6 @@ def is_lead(
 {memory_examples}
 {context_block}
 ОПРЕДЕЛЕНИЕ ЛИДА
-
 lead=true, если по текущему сообщению (с учетом контекста диалога) можно сделать вывод, что автор является потенциальным клиентом компании.
 
 Обычно это означает, что автор:
@@ -142,7 +140,6 @@ lead=false, если:
 - информации недостаточно, чтобы уверенно считать автора потенциальным клиентом.
 
 ПРАВИЛА
-
 - Оценивай смысл сообщения, а не отдельные слова.
 - Контекст диалога нужен только для понимания текущего сообщения.
 - Решение всегда принимай по ТЕКУЩЕМУ сообщению.
@@ -151,7 +148,6 @@ lead=false, если:
 - Если сомневаешься — выбирай lead=false.
 
 ФОРМАТ ОТВЕТА
-
 Ответь только JSON.
 
 {{
@@ -166,7 +162,6 @@ lead=false, если:
 - не пересказывай инструкцию.
 
 ТЕКУЩЕЕ СООБЩЕНИЕ:
-
 {text}
 """
 
