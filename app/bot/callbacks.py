@@ -3,9 +3,9 @@ from telegram.ext import ContextTypes
 from app.db import (
     now_iso,
     update_message_feedback,
-    get_message,
     add_to_blacklist,
-    remove_from_blacklist
+    remove_from_blacklist,
+    get_message_by_id, get_context_chain
 )
 from app.metrics import lead_blocked, lead_approved, lead_rejected, lead_skipped
 from telegram import (
@@ -17,10 +17,7 @@ from .keyboards import build_rating_keyboard, build_change_keyboard
 from .messages import build_lead_message, build_rater_info
 
 
-async def button_handler(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,  # не удалять!!
-):
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
 
     if not query or not query.data:
@@ -31,13 +28,20 @@ async def button_handler(
     try:
         action, message_id = query.data.split(":", 1)
     except ValueError:
-        await query.answer(
-            "Некорректные данные кнопки",
-            show_alert=True
-        )
+        await query.answer("Некорректные данные кнопки", show_alert=True)
         return
 
-    message = get_message(message_id)
+    message = get_message_by_id(message_id)
+
+    if not message:
+        await query.answer("Сообщение не найдено", show_alert=True)
+        return
+
+    context_chain = get_context_chain(
+        tg_chat_id=message.get("tg_chat_id"),
+        tg_message_id=message.get("tg_message_id"),
+        reply_to_tg_message_id=message.get("reply_to_tg_message_id")
+    )
 
     if not message:
         await query.answer(
@@ -49,7 +53,11 @@ async def button_handler(
 
     if action == "change":
         await query.edit_message_text(
-            text=build_lead_message(message),
+            text=build_lead_message(
+                message,
+                None,
+                context_chain
+            ),
             reply_markup=InlineKeyboardMarkup(
                 build_rating_keyboard(message_id)
             ),
@@ -63,7 +71,6 @@ async def button_handler(
     previous_feedback = message.get("feedback")
 
     if action == "good":
-
         rating_text = "👍 Оценка: хороший лид"
         feedback = "good"
         is_lead = True
@@ -71,7 +78,6 @@ async def button_handler(
         lead_approved()
 
     elif action == "bad":
-
         rating_text = "👎 Оценка: плохой лид"
         feedback = "bad"
         is_lead = False
@@ -79,7 +85,6 @@ async def button_handler(
         lead_rejected()
 
     elif action == "spam":
-
         rating_text = "🚫 Оценка: спам / игнор"
         feedback = "spam"
         is_lead = False
@@ -90,7 +95,6 @@ async def button_handler(
         )
 
     elif action == "skip":
-
         rating_text = "⏭️ Оценка: пропущено"
         feedback = "skip"
         is_lead = None
@@ -98,7 +102,6 @@ async def button_handler(
         lead_skipped()
 
     else:
-
         await query.answer(
             "Неизвестное действие",
             show_alert=True
@@ -130,7 +133,8 @@ async def button_handler(
     await query.edit_message_text(
         text=build_lead_message(
             message,
-            rating_block
+            rating_block,
+            context_chain
         ),
         reply_markup=InlineKeyboardMarkup(
             build_change_keyboard(message_id)

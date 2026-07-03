@@ -63,7 +63,6 @@ services:
 
     volumes:
       - ./config:/app/config
-      - hf_cache:/root/.cache/huggingface
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -158,4 +157,3 @@ volumes:
   postgres-data:
   loki-data:
   promtail-data:
-  hf_cache:

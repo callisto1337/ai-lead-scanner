@@ -44,7 +44,7 @@ def prefilter_message(text: str) -> object:
     if len(clean_text) > 1000:
         return reject("Сообщение слишком длинное")
 
-    if len(clean_text) < 20:
+    if len(clean_text) < 5:
         return reject("Сообщение слишком короткое")
 
     stopword = has_stopword(clean_text)

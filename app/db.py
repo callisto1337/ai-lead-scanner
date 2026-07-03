@@ -32,6 +32,9 @@ def init_db():
             CREATE TABLE IF NOT EXISTS messages 
             (
                 id TEXT PRIMARY KEY,
+                reply_to_id TEXT REFERENCES messages(id),
+                tg_message_id BIGINT,
+                tg_chat_id BIGINT,
                 text TEXT NOT NULL,
                 description TEXT,
                 user_id BIGINT,
@@ -157,6 +160,9 @@ def _message_from_row(row):
     message = {
         "id": row["id"],
         "text": row["text"],
+        "tg_message_id": row["tg_message_id"],
+        "reply_to_id": row["reply_to_id"],
+        "tg_chat_id": row["tg_chat_id"],
         "description": row["description"] or "",
         "user_id": row["user_id"],
         "user_link": row["user_link"],
@@ -174,13 +180,20 @@ def _message_from_row(row):
     return message
 
 
-def save_message(data):
+def save_message(data, event):
     init_db()
 
     message_id = str(uuid.uuid4())[:8]
     now = now_iso()
     detected_at = data.get("detected_at") or data.get("created_at") or now
     rated_by = data.get("rated_by") or {}
+    reply = event.message.reply_to
+    reply_to_id = None
+    tg_message_id = event.message.id
+    tg_chat_id = event.chat_id
+
+    if reply:
+        reply_to_id = get_message_by_tg_id(reply.reply_to_msg_id)
 
     with get_connection() as conn:
         conn.execute(
@@ -192,6 +205,9 @@ def save_message(data):
                 user_id,
                 user_link,
                 source_link,
+                reply_to_id,
+                tg_message_id,
+                tg_chat_id,
                 ai_lead,
                 feedback,
                 human_lead,
@@ -203,13 +219,16 @@ def save_message(data):
                 created_at,
                 updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT(id) DO UPDATE SET
                 text = EXCLUDED.text,
                 description = EXCLUDED.description,
                 user_id = EXCLUDED.user_id,
                 user_link = EXCLUDED.user_link,
                 source_link = EXCLUDED.source_link,
+                reply_to_id = EXCLUDED.reply_to_id,
+                tg_message_id = EXCLUDED.tg_message_id,
+                tg_chat_id = EXCLUDED.tg_chat_id,
                 ai_lead = EXCLUDED.ai_lead,
                 feedback = EXCLUDED.feedback,
                 human_lead = EXCLUDED.human_lead,
@@ -226,6 +245,9 @@ def save_message(data):
                 data.get("user_id"),
                 data.get("user_link"),
                 data.get("link"),
+                reply_to_id,
+                tg_message_id,
+                tg_chat_id,
                 data.get("lead", True),
                 data.get("feedback"),
                 data.get("human_lead"),
@@ -240,21 +262,6 @@ def save_message(data):
         )
 
     return message_id
-
-
-def get_message(message_id):
-    init_db()
-
-    with get_connection() as conn:
-        row = conn.execute(
-            "SELECT * FROM messages WHERE id = %s",
-            (message_id,)
-        ).fetchone()
-
-    if not row:
-        return None
-
-    return _message_from_row(row)
 
 
 def update_message_feedback(message_id, feedback, human_lead, rated_at, rated_by):
@@ -346,6 +353,7 @@ def count_final_feedback_since(since_iso):
         row["feedback"]: row["total"]
         for row in rows
     }
+
 
 def save_embedding(message_id, embedding):
     init_db()
@@ -501,3 +509,113 @@ def remove_from_blacklist(user_id: int):
         )
 
     return result.rowcount > 0
+
+
+def get_message_by_id(message_id: str):
+    with get_connection() as conn:
+        return conn.execute(
+            """
+            SELECT * 
+            FROM messages
+            WHERE id = %s
+            """,
+            (message_id,)
+        ).fetchone()
+
+
+def get_message_by_tg_id(tg_message_id: int):
+    init_db()
+
+    with get_connection() as conn:
+        return conn.execute(
+            """
+            SELECT *
+            FROM messages
+            WHERE tg_message_id = %s
+            LIMIT 1
+            """,
+            (tg_message_id,)
+        ).fetchone()
+
+
+def get_reply_chain(message_id: str, limit: int = 3) -> list[str]:
+    chain = []
+    current_id = message_id
+
+    with get_connection() as conn:
+        while current_id and len(chain) < limit:
+            row = conn.execute(
+                """
+                SELECT
+                    text,
+                    reply_to_id
+                FROM messages
+                WHERE id = %s
+                """,
+                (current_id,)
+            ).fetchone()
+
+            if not row:
+                break
+
+            chain.append(row["text"])
+            current_id = row["reply_to_id"]
+
+    chain.reverse()
+    return chain
+
+
+def get_reply_chain_from_tg_id(reply_to_tg_message_id: int, limit=3):
+    parent = get_message_by_tg_id(reply_to_tg_message_id)
+
+    if not parent:
+        return []
+
+    return get_reply_chain(parent["id"], limit)
+
+
+def get_chat_history(
+    tg_chat_id: int,
+    before_tg_message_id: int,
+    limit: int = 3
+) -> list[str]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT text
+            FROM messages
+            WHERE tg_chat_id = %s
+              AND tg_message_id < %s
+            ORDER BY tg_message_id DESC
+            LIMIT %s
+            """,
+            (
+                tg_chat_id,
+                before_tg_message_id,
+                limit
+            )
+        ).fetchall()
+
+    return [row["text"] for row in reversed(rows)]
+
+
+def get_context_chain(
+    tg_chat_id: int,
+    tg_message_id: int,
+    reply_to_tg_message_id: int | None,
+    limit: int = 3,
+) -> list[str]:
+    if reply_to_tg_message_id:
+        chain = get_reply_chain_from_tg_id(
+            reply_to_tg_message_id,
+            limit,
+        )
+
+        if chain:
+            return chain
+
+    return get_chat_history(
+        tg_chat_id,
+        tg_message_id,
+        limit,
+    )

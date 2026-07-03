@@ -1,5 +1,5 @@
 from telethon import events
-from app.db import save_seen_message, save_message, is_blacklisted
+from app.db import save_seen_message, save_message, is_blacklisted, get_context_chain
 from app.settings import CHAT_ID
 from app.bot.sender import send_to_leads
 from app.utils import build_tg_link, normalize
@@ -53,15 +53,11 @@ async def handle_new_message(event):
     else:
         reply = None
 
-    reply_text = None
-
-    if reply:
-        reply_text = normalize(reply.raw_text)
-        print("💬 Reply:", reply_text, flush=True)
-
     result = process_message(
         clean_text,
-        reply_text
+        event.chat_id,
+        event.message.id,
+        reply.id if reply else None
     )
 
     save_seen_message(clean_text)
@@ -82,13 +78,18 @@ async def handle_new_message(event):
 
     if result["lead"]:
         result["link"] = await build_tg_link(event)
+        context = get_context_chain(
+            tg_chat_id=event.chat_id,
+            tg_message_id=event.message.id,
+            reply_to_tg_message_id=event.message.reply_to_msg_id,
+        )
 
         try:
-            message_id = save_message(result)
+            message_id = save_message(result, event)
             sent = await send_to_leads(
                 message_id,
                 result,
-                reply_text
+                context
             )
 
             if not sent:

@@ -9,7 +9,12 @@ from app.metrics import (
 )
 
 
-def process_message(clean_text: str, reply_clean_text: str | None) -> dict | None:
+def process_message(
+    clean_text: str,
+    tg_chat_id: int,
+    tg_message_id: int,
+    reply_tg_message_id: int | None = None
+) -> dict | None:
     message_received()
 
     prefilter_result = prefilter_message(clean_text)
@@ -24,7 +29,12 @@ def process_message(clean_text: str, reply_clean_text: str | None) -> dict | Non
     ai_request()
 
     with AI_TIME.time():
-        result = is_lead(clean_text, reply_clean_text)
+        result = is_lead(
+            clean_text,
+            tg_chat_id,
+            tg_message_id,
+            reply_tg_message_id
+    )
 
     if not result:
         return None
