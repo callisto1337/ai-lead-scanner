@@ -1,10 +1,10 @@
-import ollama
 import time
 
 from app.db import get_context_chain, get_message_by_tg_id
+from app.model_client import call_model
 from app.retrieval import find_similar_messages
 from app.types import TG_MESSAGE_ID
-from app.utils import extract_json, load_lines, load_text
+from app.utils import load_lines, load_text
 
 KEYWORDS = load_lines("keywords.txt")
 ABOUT = load_text("about.txt")
@@ -154,55 +154,24 @@ lead=false, если:
 {text}
 """
 
-    print("PROMT: ", prompt, flush=True)
+    print("PROMPT: ", prompt, flush=True)
 
-    try:
+    start_time = time.perf_counter()
+    data = call_model(prompt)
+    elapsed = time.perf_counter() - start_time
 
-        start_time = time.perf_counter()
+    print(
+        f"⏱️ ИИ ответил за {elapsed:.2f} сек.",
+        flush=True
+    )
 
-        response = ollama.chat(
-            model="qwen2.5:7b",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Ты строгий классификатор клиентских запросов. Отвечай только валидным JSON только на русском языке."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            format="json"
-        )
-
-        elapsed = time.perf_counter() - start_time
-        raw = response["message"]["content"]
-        data = extract_json(raw)
-
-        print(
-            f"⏱️ ИИ ответил за {elapsed:.2f} сек.",
-            flush=True
-        )
-
-        print("Prompt tokens:", response["prompt_eval_count"])
-        print("Generated tokens:", response["eval_count"])
-
-
-        if not data:
-            return None
-
-        result = {
-            "lead": bool(data.get("lead", False)),
-            "text": text,
-            "description": str(data.get("description", "Не указано")),
-        }
-
-        return result
-
-    except Exception as e:
-        print(
-            "❌ Ollama error:",
-            e
-        )
-
+    if not data:
         return None
+
+    result = {
+        "lead": bool(data.get("lead", False)),
+        "text": text,
+        "description": str(data.get("description", "Не указано")),
+    }
+
+    return result

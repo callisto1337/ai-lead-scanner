@@ -90,25 +90,6 @@ def normalize(text):
     return text.strip()
 
 
-def extract_json(text):
-    decoder = json.JSONDecoder()
-
-    text = text.strip()
-
-    start = text.find("{")
-
-    if start == -1:
-        return None
-
-    try:
-        data, _ = decoder.raw_decode(text[start:])
-        return data
-
-    except Exception as e:
-        print("❌ JSON extract error:", e)
-        return None
-
-
 def load_lines(filename):
     path = BASE_DIR / "config" / filename
 

@@ -1,20 +1,4 @@
 services:
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: lead-scanner-ollama
-
-    restart: always
-
-    volumes:
-      - ollama-data:/root/.ollama
-
-    ports:
-      - "11434:11434"
-
-    gpus: all
-
-
   monitor:
     build: .
 
@@ -25,21 +9,18 @@ services:
     restart: on-failure:3
 
     depends_on:
-      ollama:
-        condition: service_started
       postgres:
         condition: service_healthy
 
     env_file:
       - .env
 
-    environment:
-      OLLAMA_HOST: http://ollama:11434
-      DATABASE_URL: postgresql://${POSTGRES_USER:-lead_scanner}:${POSTGRES_PASSWORD:-lead_scanner_password}@postgres:5432/${POSTGRES_DB:-lead_scanner}
-
     volumes:
       - ./config:/app/config
       - ./sessions:/app/sessions
+
+    networks:
+      - lead-scanner-net
 
 
   bot:
@@ -63,6 +44,9 @@ services:
 
     volumes:
       - ./config:/app/config
+
+    networks:
+      - lead-scanner-net
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -91,6 +75,9 @@ services:
       timeout: 5s
       retries: 10
 
+    networks:
+      - lead-scanner-net
+
 
   prometheus:
     image: prom/prometheus
@@ -103,6 +90,9 @@ services:
 
     ports:
       - "9090:9090"
+
+    networks:
+      - lead-scanner-net
 
 
   grafana:
@@ -119,6 +109,9 @@ services:
     depends_on:
       - prometheus
 
+    networks:
+      - lead-scanner-net
+
 
   loki:
     image: grafana/loki:latest
@@ -130,6 +123,9 @@ services:
 
     volumes:
       - loki-data:/loki
+
+    networks:
+      - lead-scanner-net
 
 
   promtail:
@@ -149,11 +145,17 @@ services:
     depends_on:
       - loki
 
+    networks:
+      - lead-scanner-net
+
 
 volumes:
-  ollama-data:
   grafana-data:
   prometheus-data:
   postgres-data:
   loki-data:
   promtail-data:
+
+networks:
+  lead-scanner-net:
+    external: true
