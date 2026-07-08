@@ -225,7 +225,6 @@ def init_db():
             )
             """
         )
-
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS lead_destinations
@@ -242,6 +241,36 @@ def init_db():
 
                 UNIQUE (niche_id, telegram_chat_id, telegram_topic_id)
             );
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS global_stopwords
+            (
+                id         BIGSERIAL PRIMARY KEY,
+                phrase     TEXT        NOT NULL UNIQUE,
+                is_active  BOOLEAN     NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS telegram_configs
+            (
+                id               BIGSERIAL PRIMARY KEY,
+
+                company_id       BIGINT      NOT NULL REFERENCES companies (id) ON DELETE CASCADE UNIQUE,
+
+                chat_id          BIGINT      NOT NULL,
+                leads_topic_id   BIGINT,
+                metrics_topic_id BIGINT,
+
+                is_active        BOOLEAN     NOT NULL DEFAULT TRUE,
+
+                created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
             """
         )
 
@@ -275,16 +304,5 @@ def init_db():
             """
             CREATE INDEX IF NOT EXISTS idx_lead_feedback_events_lead_result_id
                 ON lead_feedback_events (lead_result_id)
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS global_stopwords
-            (
-                id         BIGSERIAL PRIMARY KEY,
-                phrase     TEXT        NOT NULL UNIQUE,
-                is_active  BOOLEAN     NOT NULL DEFAULT TRUE,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-            )
             """
         )

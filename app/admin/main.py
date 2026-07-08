@@ -12,7 +12,9 @@ from app.admin.models import (
     NicheConfig,
     NicheKeyword,
     NicheBlacklist,
-    LeadDestination, GlobalStopword,
+    LeadDestination,
+    GlobalStopword,
+    TelegramConfig
 )
 from app.db.niches import get_niches_for_select, add_niche_blacklist_bulk, add_niche_keywords_bulk
 from app.settings import DATABASE_URL
@@ -264,9 +266,32 @@ class GlobalStopwordAdmin(ModelView, model=GlobalStopword):
     ]
 
 
+class TelegramConfigAdmin(ModelView, model=TelegramConfig):
+    name = "Telegram настройки"
+    name_plural = "Telegram настройки"
+
+    column_list = [
+        TelegramConfig.id,
+        TelegramConfig.company,
+        TelegramConfig.chat_id,
+        TelegramConfig.leads_topic_id,
+        TelegramConfig.metrics_topic_id,
+        TelegramConfig.is_active,
+    ]
+
+    form_columns = [
+        TelegramConfig.company,
+        TelegramConfig.chat_id,
+        TelegramConfig.leads_topic_id,
+        TelegramConfig.metrics_topic_id,
+        TelegramConfig.is_active,
+    ]
+
+
 admin.add_view(GlobalStopwordAdmin)
 admin.add_view(CompanyAdmin)
 admin.add_view(NicheAdmin)
+admin.add_view(TelegramConfigAdmin)
 admin.add_view(NicheConfigAdmin)
 admin.add_view(NicheKeywordAdmin)
 admin.add_view(NicheBlacklistAdmin)

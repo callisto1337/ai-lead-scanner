@@ -13,15 +13,12 @@ SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 API_ID = int(os.getenv("API_ID", "0"))
 API_HASH = str(os.getenv("API_HASH", ""))
 BOT_TOKEN = str(os.getenv("BOT_TOKEN", ""))
-CHAT_ID = int(os.getenv("CHAT_ID", "0"))
-METRICS_TOPIC_ID = int(os.getenv("METRICS_TOPIC_ID", "0"))
-LEADS_TOPIC_ID = int(os.getenv("LEADS_TOPIC_ID", "0"))
 
 CHAR_REPLACEMENTS_FILE = CONFIG_DIR / "char_replacements.txt"
+
 POSTGRES_DB = os.getenv("POSTGRES_DB", "")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
-
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@postgres:5432/{POSTGRES_DB}"

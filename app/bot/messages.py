@@ -5,17 +5,21 @@ def build_rater_info(user):
     if not user:
         return {
             "id": None,
-            "text": "неизвестный аккаунт"
+            "username": None,
+            "name": "",
+            "text": "неизвестный аккаунт",
         }
 
-    full_name = " ".join(
+    first_name = getattr(user, "first_name", None)
+    last_name = getattr(user, "last_name", None)
+
+    name_parts = [
         part
-        for part in (
-            getattr(user, "first_name", None),
-            getattr(user, "last_name", None),
-        )
-        if part
-    )
+        for part in (first_name, last_name)
+        if isinstance(part, str) and part
+    ]
+
+    full_name = " ".join(name_parts)
 
     username = getattr(user, "username", None)
     user_id = getattr(user, "id", None)
@@ -31,7 +35,7 @@ def build_rater_info(user):
         "id": user_id,
         "username": username,
         "name": full_name,
-        "text": text
+        "text": text,
     }
 
 
@@ -54,7 +58,7 @@ def build_lead_message(
 🔥 НОВЫЙ ЛИД
 {history_block}
 💬 Сообщение:
-<pre>{html.escape(lead["text"])}</pre>
+<pre>{html.escape(lead.get("text", ""))}</pre>
 
 👤 Пользователь:
 {lead.get("user_link", "нет ссылки")}

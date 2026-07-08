@@ -138,3 +138,36 @@ class GlobalStopword(Base):
 
     def __str__(self):
         return self.phrase
+
+
+class TelegramConfig(Base):
+    __tablename__ = "telegram_configs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("companies.id"),
+        nullable=False,
+        unique=True,
+    )
+
+    chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    leads_topic_id: Mapped[int | None] = mapped_column(BigInteger)
+    metrics_topic_id: Mapped[int | None] = mapped_column(BigInteger)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    created_at = mapped_column(
+        TIMESTAMP(timezone=True),
+        server_default=text("now()"),
+    )
+    updated_at = mapped_column(
+        TIMESTAMP(timezone=True),
+        server_default=text("now()"),
+    )
+
+    company = relationship("Company")
+
+    def __str__(self):
+        return f"Telegram config #{self.id}"

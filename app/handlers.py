@@ -6,11 +6,11 @@ from app.db.dedup import save_seen_message
 from app.db.niches import get_active_niches
 from app.metrics import spam_detected
 from app.prefilter import prefilter_message
-from app.settings import CHAT_ID
 from app.bot.sender import send_to_leads
 from app.utils import build_tg_link, normalize
 from app.sender_utils import enrich_sender_info
 from app.lead_processor import process_message
+from app.db.telegram_configs import get_telegram_config_by_company
 
 
 def register_handlers(client):
@@ -21,9 +21,6 @@ def register_handlers(client):
 
 async def handle_new_message(event):
     if event.out:
-        return
-
-    if event.chat_id == CHAT_ID:
         return
 
     if event.message.post:
@@ -113,6 +110,7 @@ async def handle_new_message(event):
         enrich_sender_info(result, sender)
 
         result["link"] = source_link
+        result["text"] = clean_text
 
         if result["lead"]:
             print("🔥 Найден лид", flush=True)
@@ -124,16 +122,36 @@ async def handle_new_message(event):
             result.get("description", "Нет объяснения"),
             flush=True,
         )
+
         print("---------------", flush=True)
 
         if not result["lead"]:
             continue
 
+        telegram_config = get_telegram_config_by_company(niche["company_id"])
+
+        if not telegram_config:
+            print(
+                f"⚠️ Нет Telegram config для компании {niche['company_name']}",
+                f"---------------",
+                flush=True,
+            )
+            continue
+
         try:
+            print(
+                f"📤 Отправляем лид lead_result_id={result['lead_result_id']} "
+                f"chat_id={telegram_config.get('chat_id')} "
+                f"leads_topic_id={telegram_config.get('leads_topic_id')}",
+                f"---------------",
+                flush=True,
+            )
+
             sent = await send_to_leads(
                 result["lead_result_id"],
                 result,
                 context,
+                telegram_config,
             )
 
             if not sent:
