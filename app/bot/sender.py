@@ -24,7 +24,7 @@ bot = Bot(
 )
 
 
-async def send_to_leads(message_id: str, result, history):
+async def send_to_leads(lead_result_id: int, result, history):
     for attempt in range(3):
         try:
             await bot.send_message(
@@ -35,43 +35,29 @@ async def send_to_leads(message_id: str, result, history):
                 ),
                 message_thread_id=LEADS_TOPIC_ID,
                 reply_markup=InlineKeyboardMarkup(
-                    build_rating_keyboard(message_id)
+                    build_rating_keyboard(lead_result_id)
                 ),
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
             return True
 
         except RetryAfter as e:
             wait_seconds = int(getattr(e, "retry_after", 10))
-
-            print(
-                f"⏳ Telegram ограничил отправку. Ждём {wait_seconds} сек.",
-                flush=True
-            )
-
+            print(f"⏳ Telegram ограничил отправку. Ждём {wait_seconds} сек.", flush=True)
             await asyncio.sleep(wait_seconds)
 
         except (TimedOut, NetworkError) as e:
             wait_seconds = 5 * (attempt + 1)
-
             print(
                 f"⚠️ Ошибка сети при отправке лида. "
                 f"Попытка {attempt + 1}/3. Ждём {wait_seconds} сек. Ошибка: {e}",
-                flush=True
+                flush=True,
             )
-
             await asyncio.sleep(wait_seconds)
 
         except Exception as e:
-            print(
-                f"❌ Неожиданная ошибка при отправке лида: {e}",
-                flush=True
-            )
+            print(f"❌ Неожиданная ошибка при отправке лида: {e}", flush=True)
             return False
 
-    print(
-        "❌ Не удалось отправить лид после 3 попыток",
-        flush=True
-    )
-
+    print("❌ Не удалось отправить лид после 3 попыток", flush=True)
     return False

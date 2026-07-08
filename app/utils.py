@@ -1,6 +1,7 @@
-import json
 import re
 import hashlib
+from datetime import datetime
+
 import unicodedata
 from app.settings import (
     BASE_DIR,
@@ -114,3 +115,7 @@ def load_text(filename):
     return path.read_text(
         encoding="utf-8"
     ).strip()
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()

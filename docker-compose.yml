@@ -18,6 +18,7 @@ services:
     volumes:
       - ./config:/app/config
       - ./sessions:/app/sessions
+      - hf-cache:/root/.cache/huggingface
 
     networks:
       - lead-scanner-net
@@ -148,6 +149,28 @@ services:
     networks:
       - lead-scanner-net
 
+  admin:
+    build: .
+    container_name: lead-scanner-admin
+    command: python -m uvicorn app.admin.main:app --host 0.0.0.0 --port 8001
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lead_scanner}:${POSTGRES_PASSWORD:-lead_scanner_password}@postgres:5432/${POSTGRES_DB:-lead_scanner}
+
+    ports:
+      - "8001:8001"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - lead-scanner-net
+
 
 volumes:
   grafana-data:
@@ -155,6 +178,7 @@ volumes:
   postgres-data:
   loki-data:
   promtail-data:
+  hf-cache:
 
 networks:
   lead-scanner-net:

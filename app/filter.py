@@ -7,7 +7,6 @@ from app.types import TG_MESSAGE_ID
 from app.utils import load_lines, load_text
 
 KEYWORDS = load_lines("keywords.txt")
-ABOUT = load_text("about.txt")
 
 
 def format_config_list(items, fallback="Не указано"):
@@ -20,8 +19,8 @@ def format_config_list(items, fallback="Не указано"):
     )
 
 
-def build_memory_examples(text: str):
-    rows = find_similar_messages(text, 5)
+def build_memory_examples(text: str, niche_id: int):
+    rows = find_similar_messages(text, niche_id, 5)
 
     if not rows:
         return "Пока нет похожих примеров."
@@ -62,18 +61,29 @@ def is_lead(
     text: str,
     tg_chat_id: int,
     tg_message_id: int,
-    reply_tg_message_id: TG_MESSAGE_ID | None
+    niche: dict,
+    reply_tg_message_id: TG_MESSAGE_ID | None,
 ):
-    memory_examples = build_memory_examples(text)
-    reply_message_id = get_message_by_tg_id(reply_tg_message_id)
+    niche_id = niche["id"]
+
+    memory_examples = build_memory_examples(text, niche_id)
+
+    extra_instructions = niche.get("extra_instructions") or ""
+
+    reply_message = get_message_by_tg_id(reply_tg_message_id)
+    reply_message_id = reply_message["id"] if reply_message else None
+
     keywords_text = format_config_list(
         KEYWORDS,
         "Ключевые фразы не указаны."
     )
+
+    about = niche.get("about") or "Описание компании не указано."
+
     context_chain = get_context_chain(
         tg_chat_id=tg_chat_id,
         tg_message_id=tg_message_id,
-        reply_to_id=reply_message_id
+        reply_to_id=reply_message_id,
     )
 
     context_block = ""
@@ -95,7 +105,10 @@ def is_lead(
 Не используй внешние знания о бизнесе. Основывайся только на описании компании, сообщении, контексте диалога и примерах из истории.
 
 ОПИСАНИЕ КОМПАНИИ:
-{ABOUT}
+{about}
+
+ДОПОЛНИТЕЛЬНЫЕ ПРАВИЛА НИШИ:
+{extra_instructions or "Не указаны."}
 
 КЛЮЧЕВЫЕ ФРАЗЫ:
 Ключевые фразы помогают определить тематику сообщения, но сами по себе НЕ являются признаком лида.
@@ -172,6 +185,8 @@ lead=false, если:
         "lead": bool(data.get("lead", False)),
         "text": text,
         "description": str(data.get("description", "Не указано")),
+        "prompt": prompt,
+        "raw_response": data,
     }
 
     return result

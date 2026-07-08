@@ -10,7 +10,10 @@ def get_model():
     global _model
 
     if _model is None:
-        _model = SentenceTransformer(MODEL_NAME)
+        _model = SentenceTransformer(
+            MODEL_NAME,
+            cache_folder="/root/.cache/huggingface/sentence-transformers",
+        )
 
     return _model
 

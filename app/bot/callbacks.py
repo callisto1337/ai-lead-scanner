@@ -1,144 +1,163 @@
-import html
+from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from app.db import (
-    now_iso,
-    update_message_feedback,
-    add_to_blacklist,
-    remove_from_blacklist,
-    get_message_by_id,
-    get_context_chain
+from html import escape
+
+from app.bot.keyboards import (
+    build_rating_keyboard,
+    build_edit_rating_keyboard,
 )
-from app.metrics import lead_blocked, lead_approved, lead_rejected, lead_skipped
-from telegram import (
-    InlineKeyboardMarkup,
-    Update
-)
-
-from .keyboards import build_rating_keyboard, build_change_keyboard
-from .messages import build_lead_message, build_rater_info
+from app.db.feedback import update_lead_feedback
 
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+FEEDBACK_MARKER = "\n\n<b>Оценка оператора</b>"
+
+
+def get_rating_data(rating: str):
+    if rating == "good":
+        return {
+            "feedback": "good",
+            "human_lead": True,
+            "label": "👍 хороший лид",
+            "text": "👍 Оценка: хороший лид",
+        }
+
+    if rating == "bad":
+        return {
+            "feedback": "bad",
+            "human_lead": False,
+            "label": "👎 плохой лид",
+            "text": "👎 Оценка: плохой лид",
+        }
+
+    if rating == "spam":
+        return {
+            "feedback": "spam",
+            "human_lead": False,
+            "label": "🚫 спам",
+            "text": "🚫 Оценка: спам",
+        }
+
+    if rating == "skip":
+        return {
+            "feedback": "skip",
+            "human_lead": None,
+            "label": "⏭️ пропущено",
+            "text": "⏭️ Оценка: скип",
+        }
+
+    return None
+
+
+def get_rater_text(user) -> str:
+    if user.username:
+        return f"@{user.username}"
+
+    if user.full_name:
+        return f"{user.full_name} (ID: {user.id})"
+
+    return f"ID: {user.id}"
+
+
+def strip_feedback_block(text: str) -> str:
+    if FEEDBACK_MARKER in text:
+        return text.split(FEEDBACK_MARKER)[0].rstrip()
+
+    return text.rstrip()
+
+
+def build_message_with_feedback(original_html: str, rating_text: str, rater_text: str) -> str:
+    clean_html = strip_feedback_block(original_html)
+
+    return f"""{clean_html}{FEEDBACK_MARKER}
+{escape(rating_text)}
+👨🏻‍💼 Оценил: {escape(rater_text)}"""
+
+
+async def handle_rating_callback(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
     query = update.callback_query
 
-    if not query or not query.data:
+    if not query:
         return
+
+    data = query.data or ""
+    print("🔘 CALLBACK:", data, flush=True)
 
     await query.answer()
 
-    try:
-        action, message_id = query.data.split(":", 1)
-    except ValueError:
-        await query.answer("Некорректные данные кнопки", show_alert=True)
-        return
+    if data.startswith("edit_rate:"):
+        try:
+            _, lead_result_id_raw = data.split(":")
+            lead_result_id = int(lead_result_id_raw)
+        except ValueError:
+            await query.answer("Некорректные данные", show_alert=True)
+            return
 
-    message = get_message_by_id(message_id)
+        original_html = query.message.text_html or query.message.text or ""
+        clean_html = strip_feedback_block(original_html)
 
-    if not message:
-        await query.answer("Сообщение не найдено", show_alert=True)
-        return
-
-    context_chain = get_context_chain(
-        tg_chat_id=message.get("tg_chat_id"),
-        tg_message_id=message.get("tg_message_id"),
-        reply_to_id=message.get("reply_to_tg_message_id")
-    )
-
-    if not message:
-        await query.answer(
-            "Сообщение не найдено",
-            show_alert=True
-        )
-
-        return
-
-    if action == "change":
         await query.edit_message_text(
-            text=build_lead_message(
-                message,
-                None,
-                context_chain
-            ),
+            text=clean_html,
+            parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(
-                build_rating_keyboard(message_id)
+                build_rating_keyboard(lead_result_id)
             ),
-            parse_mode="HTML"
-        )
-
-        remove_from_blacklist(message.get("user_id"))
-
-        return
-
-    previous_feedback = message.get("feedback")
-
-    if action == "good":
-        rating_text = "👍 Оценка: хороший лид"
-        feedback = "good"
-        is_lead = True
-
-        lead_approved()
-
-    elif action == "bad":
-        rating_text = "👎 Оценка: плохой лид"
-        feedback = "bad"
-        is_lead = False
-
-        lead_rejected()
-
-    elif action == "spam":
-        rating_text = "🚫 Оценка: спам / игнор"
-        feedback = "spam"
-        is_lead = False
-
-        lead_blocked()
-        add_to_blacklist(
-            message.get("user_id")
-        )
-
-    elif action == "skip":
-        rating_text = "⏭️ Оценка: пропущено"
-        feedback = "skip"
-        is_lead = None
-
-        lead_skipped()
-
-    else:
-        await query.answer(
-            "Неизвестное действие",
-            show_alert=True
+            disable_web_page_preview=True,
         )
 
         return
 
-    if previous_feedback == "spam" and feedback != "spam":
-        remove_from_blacklist(
-            message.get("user_id")
-        )
+    try:
+        action, lead_result_id_raw, rating = data.split(":")
+    except ValueError:
+        await query.answer("Некорректные данные", show_alert=True)
+        return
 
-    rater = build_rater_info(query.from_user)
-    rated_at = now_iso()
+    if action != "rate":
+        return
 
-    update_message_feedback(
-        message_id,
-        feedback,
-        is_lead,
-        rated_at,
-        rater
+    lead_result_id = int(lead_result_id_raw)
+    rating_data = get_rating_data(rating)
+
+    if not rating_data:
+        await query.answer("Неизвестная оценка", show_alert=True)
+        return
+
+    user = query.from_user
+    rater_text = get_rater_text(user)
+
+    ok = update_lead_feedback(
+        lead_result_id=lead_result_id,
+        feedback=rating_data["feedback"],
+        human_lead=rating_data["human_lead"],
+        rated_by={
+            "id": user.id,
+            "username": user.username,
+            "name": user.full_name,
+        },
     )
 
-    rating_block = (
-        f"{rating_text}\n"
-        f"👨🏻‍💼 Оценил: {html.escape(rater['text'])}"
+    if not ok:
+        await query.answer("Лид не найден", show_alert=True)
+        return
+
+    original_html = query.message.text_html or query.message.text or ""
+
+    new_text = build_message_with_feedback(
+        original_html=original_html,
+        rating_text=rating_data["text"],
+        rater_text=rater_text,
     )
 
     await query.edit_message_text(
-        text=build_lead_message(
-            message,
-            rating_block,
-            context_chain
-        ),
+        text=new_text,
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(
-            build_change_keyboard(message_id)
+            build_edit_rating_keyboard(lead_result_id)
         ),
-        parse_mode="HTML"
+        disable_web_page_preview=True,
     )
+
+    await query.answer(f"Оценка сохранена: {rating_data['label']}")

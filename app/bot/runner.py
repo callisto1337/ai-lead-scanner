@@ -1,5 +1,4 @@
 from datetime import time, timezone, timedelta
-
 from dotenv import load_dotenv
 from telegram.ext import (
     Application,
@@ -9,11 +8,13 @@ from telegram.ext import (
 
 from app.metrics import start_metrics
 from app.settings import BOT_TOKEN
+from app.bootstrap import bootstrap_app
 
-from .callbacks import button_handler
+from .callbacks import handle_rating_callback
 from .commands import report_command
 from .daily_summary import job as daily_summary_job
 
+bootstrap_app()
 
 def run_bot():
     print("🚀 Запуск бота...")
@@ -26,8 +27,12 @@ def run_bot():
         .build()
 
     app.add_handler(
+        CallbackQueryHandler(handle_rating_callback, pattern=r"^rate:")
+    )
+    app.add_handler(
         CallbackQueryHandler(
-            button_handler
+            handle_rating_callback,
+            pattern=r"^(rate|edit_rate):",
         )
     )
     app.add_handler(
