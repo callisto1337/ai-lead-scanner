@@ -123,3 +123,18 @@ class LeadDestination(Base):
 
     def __str__(self):
         return f"{self.telegram_chat_id}:{self.telegram_topic_id or ''}"
+
+
+class GlobalStopword(Base):
+    __tablename__ = "global_stopwords"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    phrase: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at = mapped_column(
+        TIMESTAMP(timezone=True),
+        server_default=text("now()"),
+    )
+
+    def __str__(self):
+        return self.phrase

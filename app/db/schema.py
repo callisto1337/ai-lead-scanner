@@ -277,3 +277,14 @@ def init_db():
                 ON lead_feedback_events (lead_result_id)
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS global_stopwords
+            (
+                id         BIGSERIAL PRIMARY KEY,
+                phrase     TEXT        NOT NULL UNIQUE,
+                is_active  BOOLEAN     NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )

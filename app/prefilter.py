@@ -1,10 +1,9 @@
-from app.db import exists_seen_message
-from app.utils import normalize, load_lines, get_hash
+from app.db.dedup import exists_seen_message
+from app.db.stopwords import get_active_stopwords
+from app.utils import normalize, get_hash
 
-STOPWORDS_LIST = load_lines("stopwords.txt")
 
-
-def reject(reason) -> object:
+def reject(reason) -> dict:
     return {
         "ok": False,
         "reason": reason,
@@ -14,8 +13,10 @@ def reject(reason) -> object:
 def has_stopword(text: str):
     text_lower = normalize(text)
 
-    for word in STOPWORDS_LIST:
-        if normalize(word) in text_lower:
+    for word in get_active_stopwords():
+        normalized_word = normalize(word)
+
+        if normalized_word and normalized_word in text_lower:
             return word
 
     return None
@@ -28,7 +29,7 @@ def is_duplicate(text: str) -> bool:
     return exists_seen_message(msg_hash)
 
 
-def prefilter_message(text: str) -> object:
+def prefilter_message(text: str) -> dict:
     if not text:
         return reject("Пустое сообщение")
 
@@ -37,7 +38,6 @@ def prefilter_message(text: str) -> object:
     if not clean_text:
         return reject("Пустое сообщение")
 
-    # Сначала проверяем/сохраняем увиденное сообщение
     if is_duplicate(clean_text):
         return reject("Спам / дубль сообщения")
 

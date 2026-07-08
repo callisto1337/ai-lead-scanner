@@ -12,7 +12,7 @@ from app.admin.models import (
     NicheConfig,
     NicheKeyword,
     NicheBlacklist,
-    LeadDestination,
+    LeadDestination, GlobalStopword,
 )
 from app.db.niches import get_niches_for_select, add_niche_blacklist_bulk, add_niche_keywords_bulk
 from app.settings import DATABASE_URL
@@ -248,6 +248,23 @@ class BulkPhrasesAdmin(BaseView):
         """)
 
 
+class GlobalStopwordAdmin(ModelView, model=GlobalStopword):
+    name = "Глобальное стоп-слово"
+    name_plural = "Глобальные стоп-слова"
+
+    column_list = [
+        GlobalStopword.id,
+        GlobalStopword.phrase,
+        GlobalStopword.is_active,
+    ]
+
+    form_columns = [
+        GlobalStopword.phrase,
+        GlobalStopword.is_active,
+    ]
+
+
+admin.add_view(GlobalStopwordAdmin)
 admin.add_view(CompanyAdmin)
 admin.add_view(NicheAdmin)
 admin.add_view(NicheConfigAdmin)

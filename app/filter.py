@@ -4,9 +4,6 @@ from app.db import get_context_chain, get_message_by_tg_id
 from app.model_client import call_model
 from app.retrieval import find_similar_messages
 from app.types import TG_MESSAGE_ID
-from app.utils import load_lines, load_text
-
-KEYWORDS = load_lines("keywords.txt")
 
 
 def format_config_list(items, fallback="Не указано"):
@@ -66,17 +63,20 @@ def is_lead(
 ):
     niche_id = niche["id"]
 
+    keywords_text = format_config_list(
+        niche.get("keywords") or [],
+        "Ключевые фразы не указаны."
+    )
     memory_examples = build_memory_examples(text, niche_id)
+    blacklist_text = format_config_list(
+        niche.get("blacklist") or [],
+        "Blacklist-фразы не указаны."
+    )
 
     extra_instructions = niche.get("extra_instructions") or ""
 
     reply_message = get_message_by_tg_id(reply_tg_message_id)
     reply_message_id = reply_message["id"] if reply_message else None
-
-    keywords_text = format_config_list(
-        KEYWORDS,
-        "Ключевые фразы не указаны."
-    )
 
     about = niche.get("about") or "Описание компании не указано."
 
@@ -113,6 +113,10 @@ def is_lead(
 КЛЮЧЕВЫЕ ФРАЗЫ:
 Ключевые фразы помогают определить тематику сообщения, но сами по себе НЕ являются признаком лида.
 {keywords_text}
+
+BLACKLIST-ФРАЗЫ:
+Если сообщение относится к этим темам, оно обычно не является целевым лидом.
+{blacklist_text}
 
 ПРИМЕРЫ ИЗ ИСТОРИИ:
 Ниже приведены похожие диалоги, ранее оценённые человеком.

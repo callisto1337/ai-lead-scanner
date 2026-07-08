@@ -1,6 +1,7 @@
 from app.db.connection import get_connection
 from app.db.schema import init_db
 from app.db.niches import get_active_niches
+from app.db.stopwords import get_active_stopwords
 
 from app.db.messages import (
     save_message,

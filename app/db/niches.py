@@ -3,7 +3,7 @@ from app.db.connection import get_connection
 
 def get_active_niches():
     with get_connection() as conn:
-        return conn.execute(
+        rows = conn.execute(
             """
             SELECT
                 n.id,
@@ -23,6 +23,39 @@ def get_active_niches():
             ORDER BY c.id, n.id
             """
         ).fetchall()
+
+        niches = []
+
+        for row in rows:
+            keywords = conn.execute(
+                """
+                SELECT phrase
+                FROM niche_keywords
+                WHERE niche_id = %s
+                  AND is_active = TRUE
+                ORDER BY id
+                """,
+                (row["id"],)
+            ).fetchall()
+
+            blacklist = conn.execute(
+                """
+                SELECT phrase
+                FROM niche_blacklist
+                WHERE niche_id = %s
+                  AND is_active = TRUE
+                ORDER BY id
+                """,
+                (row["id"],)
+            ).fetchall()
+
+            niches.append({
+                **row,
+                "keywords": [item["phrase"] for item in keywords],
+                "blacklist": [item["phrase"] for item in blacklist],
+            })
+
+        return niches
 
 
 def get_niches_for_select():
