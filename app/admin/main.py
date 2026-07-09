@@ -12,7 +12,6 @@ from app.admin.models import (
     NicheConfig,
     NicheKeyword,
     NicheBlacklist,
-    LeadDestination,
     GlobalStopword,
     TelegramConfig
 )
@@ -127,26 +126,6 @@ class NicheBlacklistAdmin(ModelView, model=NicheBlacklist):
         NicheBlacklist.niche_id,
         NicheBlacklist.phrase,
         NicheBlacklist.is_active,
-    ]
-
-
-class LeadDestinationAdmin(ModelView, model=LeadDestination):
-    name = "Куда отправлять лиды"
-    name_plural = "Куда отправлять лиды"
-
-    column_list = [
-        LeadDestination.id,
-        LeadDestination.niche_id,
-        LeadDestination.telegram_chat_id,
-        LeadDestination.telegram_topic_id,
-        LeadDestination.is_active,
-    ]
-
-    form_columns = [
-        LeadDestination.niche_id,
-        LeadDestination.telegram_chat_id,
-        LeadDestination.telegram_topic_id,
-        LeadDestination.is_active,
     ]
 
 
@@ -295,5 +274,4 @@ admin.add_view(TelegramConfigAdmin)
 admin.add_view(NicheConfigAdmin)
 admin.add_view(NicheKeywordAdmin)
 admin.add_view(NicheBlacklistAdmin)
-admin.add_view(LeadDestinationAdmin)
 admin.add_view(BulkPhrasesAdmin)

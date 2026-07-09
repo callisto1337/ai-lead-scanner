@@ -106,25 +106,6 @@ class NicheBlacklist(Base):
         return self.phrase
 
 
-class LeadDestination(Base):
-    __tablename__ = "lead_destinations"
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    niche_id: Mapped[int] = mapped_column(
-        BigInteger,
-        ForeignKey("niches.id"),
-        nullable=False,
-    )
-
-    telegram_chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    telegram_topic_id: Mapped[int | None] = mapped_column(BigInteger)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at = mapped_column(TIMESTAMP(timezone=True))
-
-    def __str__(self):
-        return f"{self.telegram_chat_id}:{self.telegram_topic_id or ''}"
-
-
 class GlobalStopword(Base):
     __tablename__ = "global_stopwords"
 
