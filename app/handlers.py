@@ -3,14 +3,10 @@ from telethon import events
 from app.db.messages import save_message, get_context_chain
 from app.db.blacklist_users import is_blacklisted
 from app.db.dedup import save_seen_message
-from app.db.niches import get_active_niches
 from app.metrics import spam_detected
 from app.prefilter import prefilter_message
-from app.bot.sender import send_to_leads
 from app.utils import build_tg_link, normalize
-from app.sender_utils import enrich_sender_info
-from app.lead_processor import process_message
-from app.db.telegram_configs import get_telegram_config_by_company
+from app.queue import message_queue
 
 
 def register_handlers(client):
@@ -45,8 +41,6 @@ async def handle_new_message(event):
     short_text = clean_text[:150] + "..." if len(clean_text) > 150 else clean_text
     print("💬 Новое сообщение:", short_text, flush=True)
 
-    # Глобальный prefilter: дубль / мусор / общий спам.
-    # Должен выполняться один раз на сообщение, а не на каждую нишу.
     prefilter_result = prefilter_message(clean_text)
 
     if not prefilter_result["ok"]:
@@ -55,7 +49,6 @@ async def handle_new_message(event):
         print("---------------", flush=True)
         return
 
-    # Сохраняем как увиденное только после успешного prefilter.
     save_seen_message(clean_text)
 
     if event.message.reply_to_msg_id:
@@ -81,81 +74,21 @@ async def handle_new_message(event):
         message_id=message_id,
     )
 
-    niches = get_active_niches()
+    await message_queue.put(
+        {
+            "clean_text": clean_text,
+            "message_id": message_id,
+            "tg_chat_id": event.chat_id,
+            "tg_message_id": event.message.id,
+            "reply_tg_message_id": reply.id if reply else None,
+            "source_link": source_link,
+            "context": context,
+            "sender_id": sender.id if sender else None,
+            "sender": sender,
+        }
+    )
 
-    if not niches:
-        print("⚠️ Нет активных ниш", flush=True)
-        print("---------------", flush=True)
-        return
-
-    for niche in niches:
-        print(
-            f"🔎 Проверка ниши: {niche['company_name']} / {niche['name']}",
-            flush=True,
-        )
-
-        result = process_message(
-            clean_text=clean_text,
-            message_id=message_id,
-            tg_chat_id=event.chat_id,
-            tg_message_id=event.message.id,
-            reply_tg_message_id=reply.id if reply else None,
-            niche=niche,
-        )
-
-        if not result:
-            print("---------------", flush=True)
-            continue
-
-        enrich_sender_info(result, sender)
-
-        result["link"] = source_link
-        result["text"] = clean_text
-
-        if result["lead"]:
-            print("🔥 Найден лид", flush=True)
-        else:
-            print("❌ Нерелевантное сообщение", flush=True)
-
-        print(
-            "🤖 Объяснение:",
-            result.get("description", "Нет объяснения"),
-            flush=True,
-        )
-
-        print("---------------", flush=True)
-
-        if not result["lead"]:
-            continue
-
-        telegram_config = get_telegram_config_by_company(niche["company_id"])
-
-        if not telegram_config:
-            print(
-                f"⚠️ Нет Telegram config для компании {niche['company_name']}",
-                f"---------------",
-                flush=True,
-            )
-            continue
-
-        try:
-            print(
-                f"📤 Отправляем лид lead_result_id={result['lead_result_id']} "
-                f"chat_id={telegram_config.get('chat_id')} "
-                f"leads_topic_id={telegram_config.get('leads_topic_id')}",
-                f"---------------",
-                flush=True,
-            )
-
-            sent = await send_to_leads(
-                result["lead_result_id"],
-                result,
-                context,
-                telegram_config,
-            )
-
-            if not sent:
-                print("⚠️ Лид найден, но не отправлен в чат лидов", flush=True)
-
-        except Exception as e:
-            print(f"❌ Ошибка при отправке лида: {e}", flush=True)
+    print(
+        f"📥 Сообщение добавлено в очередь. queue_size={message_queue.qsize()}",
+        flush=True,
+    )

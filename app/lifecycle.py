@@ -1,13 +1,14 @@
 import os
-from prometheus_client import start_http_server
-from telethon.errors import FloodWaitError
-from app.embedding_worker import embedding_worker
 import sys
 import time
 import traceback
 import threading
 import asyncio
 
+from telethon.errors import FloodWaitError
+
+from app.embedding_worker import embedding_worker
+from app.message_worker import message_worker
 from app.metrics import start_metrics
 
 
@@ -16,26 +17,30 @@ def start_embedding_worker():
 
 
 def run_monitor(client):
-    METRICS_PORT = int(os.getenv("MONITOR_METRICS_PORT", "8002"))
+    metrics_port = int(os.getenv("MONITOR_METRICS_PORT", "8002"))
 
-    start_metrics(METRICS_PORT, "Monitor")
+    start_metrics(metrics_port, "Monitor")
 
     print(
-        f"📊 Метрики запущена на: {METRICS_PORT}/metrics",
+        f"📊 Метрики запущены на: {metrics_port}/metrics",
         flush=True,
     )
 
     print("🚀 Запуск мониторинга...", flush=True)
 
-    worker_thread = threading.Thread(
+    embedding_thread = threading.Thread(
         target=start_embedding_worker,
-        daemon=True
+        daemon=True,
     )
-    worker_thread.start()
+    embedding_thread.start()
 
     try:
         client.start()
+
+        client.loop.create_task(message_worker())
+
         print("🖥️ Мониторинг запущен", flush=True)
+
         client.run_until_disconnected()
 
     except FloodWaitError as e:
@@ -63,7 +68,6 @@ def handle_flood_wait(e: FloodWaitError):
     sys.stderr.flush()
     time.sleep(min(wait_seconds, 3600))
 
-    # Важно: exit 0, если в docker-compose стоит restart: on-failure:3
     sys.exit(0)
 
 
