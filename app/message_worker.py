@@ -8,18 +8,6 @@ from app.sender_utils import enrich_sender_info
 from app.lead_processor import process_message
 
 
-def has_niche_keyword(text: str, keywords: list[str]) -> bool:
-    if not keywords:
-        return True
-
-    text_lower = text.lower()
-
-    return any(
-        keyword.lower() in text_lower
-        for keyword in keywords
-    )
-
-
 async def process_job(job: dict):
     niches = get_active_niches()
 
@@ -29,14 +17,6 @@ async def process_job(job: dict):
         return
 
     for niche in niches:
-        if not has_niche_keyword(job["clean_text"], niche.get("keywords") or []):
-            print(
-                f"⏭️ Пропуск ниши по keywords: "
-                f"{niche['company_name']} / {niche['name']}",
-                flush=True,
-            )
-            continue
-
         print(
             f"🔎 Проверка ниши: {niche['company_name']} / {niche['name']}",
             flush=True,
