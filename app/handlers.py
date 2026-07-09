@@ -50,7 +50,7 @@ async def handle_new_message(event):
     prefilter_result = prefilter_message(clean_text)
 
     if not prefilter_result["ok"]:
-        spam_detected()
+        spam_detected.inc()
         print(f"❌ {prefilter_result['reason']}", flush=True)
         print("---------------", flush=True)
         return

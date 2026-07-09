@@ -21,11 +21,6 @@ spam_detected = Counter(
     "Total messages rejected by prefilter/spam filters",
 )
 
-ai_errors = Counter(
-    "lead_scanner_ai_errors_total",
-    "Total AI/model errors",
-)
-
 telegram_send_errors = Counter(
     "lead_scanner_telegram_send_errors_total",
     "Total Telegram send errors",

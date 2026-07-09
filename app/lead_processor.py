@@ -16,9 +16,9 @@ def process_message(
     niche: dict,
     reply_tg_message_id: int | None = None,
 ) -> dict | None:
-    message_received()
+    message_received.inc()
 
-    ai_request()
+    ai_request.inc()
 
     with AI_TIME.time():
         ai_result = is_lead(
@@ -42,7 +42,7 @@ def process_message(
     )
 
     if ai_result["lead"]:
-        lead_detected()
+        lead_detected.inc()
 
     return {
         **ai_result,

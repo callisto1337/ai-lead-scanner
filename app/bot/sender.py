@@ -1,16 +1,20 @@
+import asyncio
+
 from telegram import Bot, InlineKeyboardMarkup
+from telegram.error import TimedOut, NetworkError, RetryAfter
 from telegram.request import HTTPXRequest
 
 from app.settings import BOT_TOKEN
 from app.bot.keyboards import build_rating_keyboard
 from app.bot.messages import build_lead_message
+from app.metrics import telegram_send_errors
 
 
 request = HTTPXRequest(
-    connect_timeout=30,
-    read_timeout=30,
-    write_timeout=30,
-    pool_timeout=30,
+    connect_timeout=60,
+    read_timeout=60,
+    write_timeout=60,
+    pool_timeout=60,
 )
 
 bot = Bot(
@@ -27,12 +31,19 @@ async def send_to_leads(
 ) -> bool:
     leads_topic_id = telegram_config.get("leads_topic_id")
 
+    text = build_lead_message(
+        lead=result,
+        history=context,
+    )
+
+    max_len = 3900
+
+    if len(text) > max_len:
+        text = text[:max_len] + "\n\n…сообщение обрезано"
+
     kwargs = {
         "chat_id": telegram_config["chat_id"],
-        "text": build_lead_message(
-            lead=result,
-            history=context,
-        ),
+        "text": text,
         "reply_markup": InlineKeyboardMarkup(
             build_rating_keyboard(lead_result_id)
         ),
@@ -43,18 +54,55 @@ async def send_to_leads(
     if leads_topic_id:
         kwargs["message_thread_id"] = leads_topic_id
 
-    print(
-        f"📨 bot.send_message kwargs: "
-        f"chat_id={kwargs.get('chat_id')}, "
-        f"message_thread_id={kwargs.get('message_thread_id')}",
-        flush=True,
-    )
+    for attempt in range(1, 4):
+        try:
+            message = await bot.send_message(**kwargs)
 
-    message = await bot.send_message(**kwargs)
+            print(
+                f"✅ Лид отправлен lead_result_id={lead_result_id}, "
+                f"telegram_message_id={message.message_id}",
+                flush=True,
+            )
 
-    print(
-        f"✅ Лид отправлен: telegram_message_id={message.message_id}",
-        flush=True,
-    )
+            return True
 
-    return True
+        except RetryAfter as e:
+            wait_seconds = int(e.retry_after) + 1
+
+            print(
+                f"⏳ Telegram RetryAfter {wait_seconds}s "
+                f"lead_result_id={lead_result_id}",
+                flush=True,
+            )
+
+            await asyncio.sleep(wait_seconds)
+
+        except (TimedOut, NetworkError) as e:
+            telegram_send_errors.inc()
+
+            print(
+                f"⚠️ Telegram timeout/network error "
+                f"attempt={attempt}/3 "
+                f"lead_result_id={lead_result_id}: "
+                f"{type(e).__name__}: {e}",
+                flush=True,
+            )
+
+            if attempt == 3:
+                return False
+
+            await asyncio.sleep(2 * attempt)
+
+        except Exception as e:
+            telegram_send_errors.inc()
+
+            print(
+                f"❌ Telegram send failed "
+                f"lead_result_id={lead_result_id}: "
+                f"{type(e).__name__}: {e}",
+                flush=True,
+            )
+
+            return False
+
+    return False
