@@ -19,7 +19,6 @@ def find_similar_messages(text, niche_id: int, limit=5):
                 lr.human_lead,
                 lr.ai_lead,
                 lr.feedback,
-                lr.description,
 
                 e.embedding <=> %s::vector AS distance
 
@@ -32,6 +31,7 @@ def find_similar_messages(text, niche_id: int, limit=5):
                 ON lr.message_id = m.id
 
             WHERE lr.niche_id = %s
+              AND lr.feedback IN ('good', 'bad')
               AND lr.human_lead IS NOT NULL
               AND e.embedding <=> %s::vector < 0.7
 

@@ -1,12 +1,15 @@
+from html import escape
+
 from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from html import escape
 
 from app.bot.keyboards import (
     build_rating_keyboard,
     build_edit_rating_keyboard,
 )
 from app.db.feedback import update_lead_feedback
+from app.db.leads import get_user_id_by_lead_result_id
+from app.db.blacklist_users import add_blacklisted_user
 
 
 FEEDBACK_MARKER = "\n\n<b>Оценка оператора</b>"
@@ -32,7 +35,7 @@ def get_rating_data(rating: str):
     if rating == "spam":
         return {
             "feedback": "spam",
-            "human_lead": False,
+            "human_lead": None,
             "label": "🚫 спам",
             "text": "🚫 Оценка: спам",
         }
@@ -65,7 +68,11 @@ def strip_feedback_block(text: str) -> str:
     return text.rstrip()
 
 
-def build_message_with_feedback(original_html: str, rating_text: str, rater_text: str) -> str:
+def build_message_with_feedback(
+    original_html: str,
+    rating_text: str,
+    rater_text: str,
+) -> str:
     clean_html = strip_feedback_block(original_html)
 
     return f"""{clean_html}{FEEDBACK_MARKER}
@@ -118,7 +125,12 @@ async def handle_rating_callback(
     if action != "rate":
         return
 
-    lead_result_id = int(lead_result_id_raw)
+    try:
+        lead_result_id = int(lead_result_id_raw)
+    except ValueError:
+        await query.answer("Некорректный ID лида", show_alert=True)
+        return
+
     rating_data = get_rating_data(rating)
 
     if not rating_data:
@@ -142,6 +154,27 @@ async def handle_rating_callback(
     if not ok:
         await query.answer("Лид не найден", show_alert=True)
         return
+
+    if rating_data["feedback"] == "spam":
+        spam_user_id = get_user_id_by_lead_result_id(lead_result_id)
+
+        if spam_user_id:
+            add_blacklisted_user(
+                user_id=spam_user_id,
+                reason=f"spam_feedback: lead_result_id={lead_result_id}",
+                created_by=user.id,
+            )
+
+            print(
+                f"🚫 Пользователь добавлен в blacklist: "
+                f"user_id={spam_user_id}, lead_result_id={lead_result_id}",
+                flush=True,
+            )
+        else:
+            print(
+                f"⚠️ Не удалось найти user_id для spam lead_result_id={lead_result_id}",
+                flush=True,
+            )
 
     original_html = query.message.text_html or query.message.text or ""
 

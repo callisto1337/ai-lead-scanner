@@ -58,3 +58,23 @@ def save_lead_result(
         conn.commit()
 
     return row
+
+
+def get_user_id_by_lead_result_id(lead_result_id: int) -> int | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT m.user_id
+            FROM lead_results lr
+            JOIN messages m
+                ON m.id = lr.message_id
+            WHERE lr.id = %s
+            LIMIT 1
+            """,
+            (lead_result_id,),
+        ).fetchone()
+
+    if not row:
+        return None
+
+    return row["user_id"]
