@@ -20,7 +20,6 @@ from app.db.leads import save_lead_result
 
 from app.db.feedback import (
     update_lead_feedback,
-    update_lead_feedback,
     count_final_feedback_since
 )
 

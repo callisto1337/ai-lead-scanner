@@ -1,94 +1,52 @@
-from prometheus_client import (
-    start_http_server,
-    Counter,
-    Histogram
+from prometheus_client import Counter, Histogram, start_http_server
+
+
+message_received = Counter(
+    "lead_scanner_messages_received_total",
+    "Total received Telegram messages",
 )
 
-# --------------------
-# Метрики
-# --------------------
-
-MESSAGES = Counter(
-    "messages_total",
-    "All received messages"
+ai_request = Counter(
+    "lead_scanner_ai_requests_total",
+    "Total AI classification requests",
 )
 
-SPAM = Counter(
-    "spam_total",
-    "Filtered spam messages"
+lead_detected = Counter(
+    "lead_scanner_leads_detected_total",
+    "Total AI detected leads",
 )
 
-LEADS = Counter(
-    "leads_total",
-    "Detected leads"
+spam_detected = Counter(
+    "lead_scanner_spam_detected_total",
+    "Total messages rejected by prefilter/spam filters",
 )
 
-LEADS_APPROVED = Counter(
-    "leads_approved_total",
-    "Approved leads by human"
+ai_errors = Counter(
+    "lead_scanner_ai_errors_total",
+    "Total AI/model errors",
 )
 
-LEADS_REJECTED = Counter(
-    "leads_rejected_total",
-    "Rejected leads by human"
+telegram_send_errors = Counter(
+    "lead_scanner_telegram_send_errors_total",
+    "Total Telegram send errors",
 )
 
-LEADS_SKIPPED = Counter(
-    "leads_skipped_total",
-    "Skipped leads by human"
-)
-
-LEADS_BLOCKED = Counter(
-    "leads_blocked_total",
-    "Blocked leads by human"
-)
-
-AI_REQUESTS = Counter(
-    "ai_requests_total",
-    "Requests sent to AI"
+feedback_total = Counter(
+    "lead_scanner_feedback_total",
+    "Total operator feedback events",
+    ["feedback"],
 )
 
 AI_TIME = Histogram(
-    "ai_response_seconds",
-    "AI response time"
+    "lead_scanner_ai_duration_seconds",
+    "AI request duration in seconds",
 )
 
 
-def start_metrics(port: int = 8000):
-    """
-    Запускает HTTP сервер Prometheus
-    """
+def start_metrics(port: int, service_name: str = "app") -> None:
     start_http_server(port)
-    print(f"📊 Запуск сбора метрик", flush=True)
 
-
-def message_received():
-    MESSAGES.inc()
-
-
-def spam_detected():
-    SPAM.inc()
-
-
-def lead_detected():
-    LEADS.inc()
-
-
-def ai_request():
-    AI_REQUESTS.inc()
-
-
-def lead_approved():
-    LEADS_APPROVED.inc()
-
-
-def lead_rejected():
-    LEADS_REJECTED.inc()
-
-
-def lead_skipped():
-    LEADS_SKIPPED.inc()
-
-
-def lead_blocked():
-    LEADS_BLOCKED.inc()
+    print(
+        f"📊 {service_name} metrics started on :{port}/metrics",
+        flush=True,
+    )

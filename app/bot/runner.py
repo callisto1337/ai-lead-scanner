@@ -1,4 +1,5 @@
-from datetime import time, timezone, timedelta
+import os
+from prometheus_client import start_http_server
 from dotenv import load_dotenv
 from telegram.ext import (
     Application,
@@ -16,10 +17,17 @@ from .commands import report_command
 bootstrap_app()
 
 def run_bot():
+    METRICS_PORT = int(os.getenv("BOT_METRICS_PORT", "8003"))
+    start_metrics(METRICS_PORT, "Bot")
+
+    print(
+        f"📊 Метрики бота запущены на: {METRICS_PORT}/metrics",
+        flush=True,
+    )
+
     print("🚀 Запуск бота...")
 
     load_dotenv()
-    start_metrics(8001)
 
     app = Application.builder() \
         .token(BOT_TOKEN) \

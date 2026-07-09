@@ -1,11 +1,8 @@
 services:
   monitor:
     build: .
-
     container_name: lead-scanner-monitor
-
     command: python -m app.main
-
     restart: on-failure:3
 
     depends_on:
@@ -15,22 +12,24 @@ services:
     env_file:
       - .env
 
+    environment:
+      MONITOR_METRICS_PORT: 8002
+
     volumes:
       - ./config:/app/config
       - ./sessions:/app/sessions
       - hf-cache:/root/.cache/huggingface
 
+    expose:
+      - "8002"
+
     networks:
       - lead-scanner-net
 
-
   bot:
     build: .
-
     container_name: lead-scanner-bot
-
     command: python -u -m app.bot.runner
-
     restart: always
 
     depends_on:
@@ -42,109 +41,13 @@ services:
 
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lead_scanner}:${POSTGRES_PASSWORD:-lead_scanner_password}@postgres:5432/${POSTGRES_DB:-lead_scanner}
+      BOT_METRICS_PORT: 8003
 
     volumes:
       - ./config:/app/config
 
-    networks:
-      - lead-scanner-net
-
-  postgres:
-    image: pgvector/pgvector:pg16
-
-    container_name: lead-scanner-postgres
-
-    restart: always
-
-    env_file:
-      - .env
-
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-lead_scanner}
-      POSTGRES_USER: ${POSTGRES_USER:-lead_scanner}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lead_scanner_password}
-
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-
-    ports:
-      - "5432:5432"
-
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lead_scanner} -d ${POSTGRES_DB:-lead_scanner}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-    networks:
-      - lead-scanner-net
-
-
-  prometheus:
-    image: prom/prometheus
-    container_name: lead-scanner-prometheus
-    restart: always
-
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
-
-    ports:
-      - "9090:9090"
-
-    networks:
-      - lead-scanner-net
-
-
-  grafana:
-    image: grafana/grafana
-    container_name: lead-scanner-grafana
-    restart: always
-
-    ports:
-      - "3000:3000"
-
-    volumes:
-      - grafana-data:/var/lib/grafana
-
-    depends_on:
-      - prometheus
-
-    networks:
-      - lead-scanner-net
-
-
-  loki:
-    image: grafana/loki:latest
-    container_name: lead-scanner-loki
-    restart: always
-
-    ports:
-      - "3100:3100"
-
-    volumes:
-      - loki-data:/loki
-
-    networks:
-      - lead-scanner-net
-
-
-  promtail:
-    image: grafana/promtail:latest
-    container_name: lead-scanner-promtail
-    restart: always
-
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./promtail.yml:/etc/promtail/config.yml
-      - promtail-data:/tmp
-
-    command:
-      - -config.file=/etc/promtail/config.yml
-
-    depends_on:
-      - loki
+    expose:
+      - "8003"
 
     networks:
       - lead-scanner-net
@@ -171,15 +74,39 @@ services:
     networks:
       - lead-scanner-net
 
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: lead-scanner-postgres
+    restart: always
+
+    env_file:
+      - .env
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lead_scanner}
+      POSTGRES_USER: ${POSTGRES_USER:-lead_scanner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lead_scanner_password}
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    ports:
+      - "5432:5432"
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lead_scanner} -d ${POSTGRES_DB:-lead_scanner}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - lead-scanner-net
 
 volumes:
-  grafana-data:
-  prometheus-data:
   postgres-data:
-  loki-data:
-  promtail-data:
   hf-cache:
 
 networks:
   lead-scanner-net:
-    external: true
+    name: lead-scanner-net
+    driver: bridge

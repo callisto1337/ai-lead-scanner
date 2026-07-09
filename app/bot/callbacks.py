@@ -10,7 +10,7 @@ from app.bot.keyboards import (
 from app.db.feedback import update_lead_feedback
 from app.db.leads import get_user_id_by_lead_result_id
 from app.db.blacklist_users import add_blacklisted_user
-
+from app.metrics import feedback_total
 
 FEEDBACK_MARKER = "\n\n<b>Оценка оператора</b>"
 
@@ -154,6 +154,10 @@ async def handle_rating_callback(
     if not ok:
         await query.answer("Лид не найден", show_alert=True)
         return
+
+    feedback_total.labels(
+        feedback=rating_data["feedback"]
+    ).inc()
 
     if rating_data["feedback"] == "spam":
         spam_user_id = get_user_id_by_lead_result_id(lead_result_id)

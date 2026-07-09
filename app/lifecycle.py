@@ -1,5 +1,6 @@
+import os
+from prometheus_client import start_http_server
 from telethon.errors import FloodWaitError
-from app.metrics import start_metrics
 from app.embedding_worker import embedding_worker
 import sys
 import time
@@ -7,14 +8,24 @@ import traceback
 import threading
 import asyncio
 
+from app.metrics import start_metrics
+
 
 def start_embedding_worker():
     asyncio.run(embedding_worker())
 
 
 def run_monitor(client):
+    METRICS_PORT = int(os.getenv("MONITOR_METRICS_PORT", "8002"))
+
+    start_metrics(METRICS_PORT, "Monitor")
+
+    print(
+        f"📊 Метрики запущена на: {METRICS_PORT}/metrics",
+        flush=True,
+    )
+
     print("🚀 Запуск мониторинга...", flush=True)
-    start_metrics()
 
     worker_thread = threading.Thread(
         target=start_embedding_worker,
