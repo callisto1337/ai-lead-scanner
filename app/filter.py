@@ -61,13 +61,14 @@ def is_lead(
     niche: dict,
     reply_tg_message_id: TG_MESSAGE_ID | None,
 ):
-    niche_id = niche["id"]
+    # niche_id = niche["id"]
 
     keywords_text = format_config_list(
         niche.get("keywords") or [],
         "Ключевые фразы не указаны."
     )
-    memory_examples = build_memory_examples(text, niche_id)
+    # memory_examples = build_memory_examples(text, niche_id)
+    memory_examples = ""
     blacklist_text = format_config_list(
         niche.get("blacklist") or [],
         "Blacklist-фразы не указаны."
@@ -75,28 +76,28 @@ def is_lead(
 
     extra_instructions = niche.get("extra_instructions") or ""
 
-    reply_message = get_message_by_tg_id(reply_tg_message_id)
-    reply_message_id = reply_message["id"] if reply_message else None
+    # reply_message = get_message_by_tg_id(reply_tg_message_id)
+    # reply_message_id = reply_message["id"] if reply_message else None
 
     about = niche.get("about") or "Описание компании не указано."
 
-    context_chain = get_context_chain(
-        tg_chat_id=tg_chat_id,
-        tg_message_id=tg_message_id,
-        reply_to_id=reply_message_id,
-    )
+    # context_chain = get_context_chain(
+    #     tg_chat_id=tg_chat_id,
+    #     tg_message_id=tg_message_id,
+    #     reply_to_id=reply_message_id,
+    # )
 
     context_block = ""
 
-    if len(context_chain) > 1:
-        context_block = f"""
-КОНТЕКСТ ДИАЛОГА
-Ниже приведены предыдущие сообщения этой ветки:
-
-{chr(10).join(f"- {m}" for m in context_chain[:-1])}
-
-Используй их только для понимания смысла последнего сообщения.
-""" if len(context_chain) else ""
+#     if len(context_chain) > 1:
+#         context_block = f"""
+# КОНТЕКСТ ДИАЛОГА
+# Ниже приведены предыдущие сообщения этой ветки:
+#
+# {chr(10).join(f"- {m}" for m in context_chain[:-1])}
+#
+# Используй их только для понимания смысла последнего сообщения.
+# """ if len(context_chain) else ""
 
     prompt = f"""
 Ты AI-классификатор лидов из Telegram.

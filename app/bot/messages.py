@@ -46,13 +46,13 @@ def build_lead_message(
 ):
     history_block = ""
 
-    if history:
-        history_block = "\n💬 Контекст:\n"
-
-        for item in history:
-            history_block += (
-                f"<blockquote>{html.escape(item)}</blockquote>\n"
-            )
+    # if history:
+    #     history_block = "\n💬 Контекст:\n"
+    #
+    #     for item in history:
+    #         history_block += (
+    #             f"<blockquote>{html.escape(item)}</blockquote>\n"
+    #         )
 
     message = f"""
 🔥 НОВЫЙ ЛИД
