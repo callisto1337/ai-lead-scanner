@@ -1,3 +1,3 @@
 import asyncio
 
-message_queue = asyncio.Queue(maxsize=1000)
+message_queue = asyncio.Queue(maxsize=100)

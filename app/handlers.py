@@ -1,3 +1,5 @@
+import asyncio
+
 from telethon import events
 
 from app.db.messages import save_message, get_context_chain
@@ -74,21 +76,29 @@ async def handle_new_message(event):
         message_id=message_id,
     )
 
-    await message_queue.put(
-        {
-            "clean_text": clean_text,
-            "message_id": message_id,
-            "tg_chat_id": event.chat_id,
-            "tg_message_id": event.message.id,
-            "reply_tg_message_id": reply.id if reply else None,
-            "source_link": source_link,
-            "context": context,
-            "sender_id": sender.id if sender else None,
-            "sender": sender,
-        }
-    )
+    try:
+        await message_queue.put_nowait(
+            {
+                "clean_text": clean_text,
+                "message_id": message_id,
+                "tg_chat_id": event.chat_id,
+                "tg_message_id": event.message.id,
+                "reply_tg_message_id": reply.id if reply else None,
+                "source_link": source_link,
+                "context": context,
+                "sender_id": sender.id if sender else None,
+                "sender": sender,
+            }
+        )
 
-    print(
-        f"📥 Сообщение добавлено в очередь. queue_size={message_queue.qsize()}",
-        flush=True,
-    )
+        print(
+            f"📥 Сообщение добавлено в очередь. queue_size={message_queue.qsize()}",
+            flush=True,
+        )
+
+    except asyncio.QueueFull:
+        print(
+            "⚠️ Очередь AI заполнена, сообщение пропущено",
+            flush=True,
+        )
+        return
