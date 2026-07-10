@@ -27,3 +27,4 @@ DATABASE_URL = os.getenv(
 MODEL_API_URL = os.getenv("MODEL_API_URL", "http://lead-scanner-model-api:8000")
 MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:7b")
 AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "90"))
+MIN_LEAD_SCORE = int(os.getenv("MIN_LEAD_SCORE", "75"))

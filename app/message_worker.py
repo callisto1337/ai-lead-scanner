@@ -47,8 +47,8 @@ async def process_job(job: dict):
             print("❌ Нерелевантное сообщение", flush=True)
 
         print(
-            "🤖 Объяснение:",
-            result.get("description", "Нет объяснения"),
+            f"🤖 Объяснение: {result.get('description', 'Нет объяснения')} "
+            f"| score={result.get('score')}",
             flush=True,
         )
         print("---------------", flush=True)
