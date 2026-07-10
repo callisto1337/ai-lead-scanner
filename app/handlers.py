@@ -77,7 +77,7 @@ async def handle_new_message(event):
     )
 
     try:
-        await message_queue.put_nowait(
+        message_queue.put_nowait(
             {
                 "clean_text": clean_text,
                 "message_id": message_id,
