@@ -44,6 +44,8 @@ def build_lead_message(
     rating_block: str | None=None,
     history: list[str]|None=None,
 ):
+    score = lead.get("score")
+    score_block = f"\n🎯 Score: {score}" if score is not None else ""
     history_block = ""
 
     # if history:
@@ -65,6 +67,9 @@ def build_lead_message(
 
 🔗 Источник:
 {html.escape(lead.get("link", "нет ссылки"))}
+
+🤖 AI:
+{html.escape(str(lead.get("description", "")))}{score_block}
 """
 
     if rating_block:

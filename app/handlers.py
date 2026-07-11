@@ -2,7 +2,7 @@ import asyncio
 
 from telethon import events
 
-from app.db.messages import save_message, get_context_chain
+from app.db.messages import save_message
 from app.db.blacklist_users import is_blacklisted
 from app.db.dedup import save_seen_message
 from app.metrics import spam_detected
@@ -53,8 +53,13 @@ async def handle_new_message(event):
 
     save_seen_message(clean_text)
 
+    reply_text = None
+
     if event.message.reply_to_msg_id:
         reply = await event.get_reply_message()
+
+        if reply and reply.text:
+            reply_text = reply.text.strip()
     else:
         reply = None
 
@@ -70,12 +75,6 @@ async def handle_new_message(event):
         event,
     )
 
-    context = get_context_chain(
-        tg_chat_id=event.chat_id,
-        tg_message_id=event.message.id,
-        message_id=message_id,
-    )
-
     try:
         message_queue.put_nowait(
             {
@@ -84,8 +83,8 @@ async def handle_new_message(event):
                 "tg_chat_id": event.chat_id,
                 "tg_message_id": event.message.id,
                 "reply_tg_message_id": reply.id if reply else None,
+                "reply_text": reply_text,
                 "source_link": source_link,
-                "context": context,
                 "sender_id": sender.id if sender else None,
                 "sender": sender,
             }

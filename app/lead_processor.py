@@ -15,6 +15,7 @@ def process_message(
     tg_message_id: int,
     niche: dict,
     reply_tg_message_id: int | None = None,
+    reply_text: str | None = None,
 ) -> dict | None:
     message_received.inc()
 
@@ -27,6 +28,7 @@ def process_message(
             tg_message_id=tg_message_id,
             niche=niche,
             reply_tg_message_id=reply_tg_message_id,
+            reply_text=reply_text,
         )
 
     if not ai_result:

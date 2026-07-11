@@ -3,9 +3,12 @@ from app.db.connection import get_connection
 
 def init_db():
     with get_connection() as conn:
+        conn.execute("CREATE SCHEMA IF NOT EXISTS public;")
+        conn.execute("SET search_path TO public;")
+
         conn.execute(
             """
-            CREATE EXTENSION IF NOT EXISTS vector;
+            CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
             """
         )
 

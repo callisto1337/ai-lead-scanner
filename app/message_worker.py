@@ -29,6 +29,7 @@ async def process_job(job: dict):
             tg_chat_id=job["tg_chat_id"],
             tg_message_id=job["tg_message_id"],
             reply_tg_message_id=job["reply_tg_message_id"],
+            reply_text=job.get("reply_text"),
             niche=niche,
         )
 
@@ -48,7 +49,8 @@ async def process_job(job: dict):
 
         print(
             f"🤖 Объяснение: {result.get('description', 'Нет объяснения')} "
-            f"| score={result.get('score')}",
+            f"| score={result.get('score')} "
+            f"| prompt={result.get('prompt_version')}",
             flush=True,
         )
         print("---------------", flush=True)
@@ -69,7 +71,7 @@ async def process_job(job: dict):
             sent = await send_to_leads(
                 result["lead_result_id"],
                 result,
-                job["context"],
+                [],
                 telegram_config,
             )
 
