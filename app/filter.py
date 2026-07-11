@@ -3,10 +3,45 @@ import json
 from app.db import get_context_chain
 from app.model_client import call_model
 from app.retrieval import find_similar_messages
-from app.settings import MIN_LEAD_SCORE
-
+from app.settings import MIN_LEAD_SCORE, USE_MEMORY_EXAMPLES, MEMORY_EXAMPLES_LIMIT
 
 PROMPT_VERSION = "lead_classifier_v2_algorithm"
+
+
+def format_memory_examples(examples) -> str:
+    if not examples:
+        return "Похожих размеченных примеров нет."
+
+    blocks = []
+
+    for index, item in enumerate(examples, start=1):
+        lead = "true" if item["human_lead"] else "false"
+
+        score = item.get("score")
+
+        if score is None:
+            score = 90 if item["human_lead"] else 40
+
+        description = item.get("description") or (
+            "похожий пример из ручной разметки"
+        )
+
+        blocks.append(
+            f"""
+Пример {index}:
+Сообщение:
+{item["text"]}
+
+Правильная разметка:
+{{
+  "lead": {lead},
+  "score": {score},
+  "description": "{description}"
+}}
+""".strip()
+        )
+
+    return "\n\n".join(blocks)
 
 
 def format_list(items) -> str:
@@ -23,6 +58,7 @@ def build_prompt(
     text: str,
     niche: dict,
     reply_text: str | None = None,
+    memory_examples: list | None = None,
 ) -> str:
     company_name = niche.get("company_name") or "Не указана"
     niche_name = niche.get("name") or "Не указана"
@@ -31,6 +67,7 @@ def build_prompt(
     keywords = format_list(niche.get("keywords") or [])
     blacklist = format_list(niche.get("blacklist") or [])
 
+    memory_examples_block = format_memory_examples(memory_examples or [])
     reply_block = ""
 
     if reply_text:
@@ -52,6 +89,10 @@ PROMPT_VERSION:
 
 РОЛЬ:
 Ты AI-классификатор лидов из Telegram.
+
+Telegram-сообщения идут из общего шума.
+Ниша — это фильтр, а не контекст.
+По умолчанию сообщение не связано с нишей, пока это не видно из самого текста или reply.
 
 ЗАДАЧА:
 Определи, является ли автор текущего сообщения потенциальным клиентом компании по текущей нише.
@@ -129,6 +170,16 @@ score 80+ можно ставить только если одновременн
 Проблема по теме не равна лиду.
 Фразы “ошибка”, “проблема”, “что делать”, “подскажите” сами по себе не являются запросом на услугу.
 Лид — это запрос на услугу, специалиста, консультацию или сопровождение именно по текущей нише.
+
+ПОХОЖИЕ РАЗМЕЧЕННЫЕ ПРИМЕРЫ:
+{memory_examples_block}
+
+КАК ИСПОЛЬЗОВАТЬ ПРИМЕРЫ:
+- Это реальные примеры, которые оценил человек.
+- Если текущее сообщение похоже на пример, используй такую же логику.
+- Примеры важны, но не должны отменять основной алгоритм.
+- Если примеры противоречат описанию текущей ниши или алгоритму, используй алгоритм.
+- Не копируй description дословно, если смысл текущего сообщения отличается.
 
 {reply_block}
 
@@ -210,10 +261,33 @@ def is_lead(
     reply_tg_message_id: int | None = None,
     reply_text: str | None = None,
 ):
+    memory_examples = []
+
+    if USE_MEMORY_EXAMPLES:
+        try:
+            memory_examples = find_similar_messages(
+                text=text,
+                niche_id=niche["id"],
+                limit=MEMORY_EXAMPLES_LIMIT,
+            )
+
+            print(
+                f"🧠 Memory examples: {len(memory_examples)}",
+                flush=True,
+            )
+
+        except Exception as e:
+            print(
+                f"⚠️ Ошибка retrieval examples: {type(e).__name__}: {e}",
+                flush=True,
+            )
+            memory_examples = []
+
     prompt = build_prompt(
         text=text,
         niche=niche,
         reply_text=reply_text,
+        memory_examples=memory_examples,
     )
 
     print("PROMPT:", prompt, flush=True)

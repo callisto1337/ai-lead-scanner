@@ -41,6 +41,7 @@ async def process_job(job: dict):
 
         result["link"] = job["source_link"]
         result["text"] = job["clean_text"]
+        result["reply_text"] = job.get("reply_text")
 
         if result["lead"]:
             print("🔥 Найден лид", flush=True)

@@ -28,3 +28,7 @@ MODEL_API_URL = os.getenv("MODEL_API_URL", "http://lead-scanner-model-api:8000")
 MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:7b")
 AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "90"))
 MIN_LEAD_SCORE = int(os.getenv("MIN_LEAD_SCORE", "75"))
+
+USE_MEMORY_EXAMPLES = os.getenv("USE_MEMORY_EXAMPLES", "false").lower() == "true"
+MEMORY_EXAMPLES_LIMIT = int(os.getenv("MEMORY_EXAMPLES_LIMIT", "6"))
+MEMORY_MAX_DISTANCE = float(os.getenv("MEMORY_MAX_DISTANCE", "0.65"))

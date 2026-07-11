@@ -33,7 +33,6 @@ async def send_to_leads(
 
     text = build_lead_message(
         lead=result,
-        history=context,
     )
 
     max_len = 3900
