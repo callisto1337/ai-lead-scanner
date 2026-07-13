@@ -1,5 +1,10 @@
 # AI Lead Scanner
 
+## Авторизация в телеграм по номеру
+```shell
+docker compose run --rm -it monitor python -m app.telegram_auth --reset
+```
+
 ## Запуск проекта
 ```shell
 docker compose up -d --build
