@@ -177,6 +177,7 @@ TEST_CASES = [
     tc(
         "chz_definition",
         "что такое Честный знак?",
+        chz=True,
     ),
     tc(
         "chz_success",
