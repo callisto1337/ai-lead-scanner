@@ -25,10 +25,14 @@ DATABASE_URL = os.getenv(
 )
 
 MODEL_API_URL = os.getenv("MODEL_API_URL", "http://lead-scanner-model-api:8000")
-MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:7b")
+MODEL_NAME = os.getenv("MODEL_NAME", "qwen3:14b")
 AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "90"))
 
 MIN_NICHE_SCORE = int(os.getenv("MIN_NICHE_SCORE", "75"))
 MIN_INTENT_SCORE = int(os.getenv("MIN_INTENT_SCORE", "75"))
 
 MEMORY_MAX_DISTANCE = float(os.getenv("MEMORY_MAX_DISTANCE", "0.65"))
+
+USER_LEAD_COOLDOWN_MINUTES = int(
+    os.getenv("USER_LEAD_COOLDOWN_MINUTES", "60")
+)

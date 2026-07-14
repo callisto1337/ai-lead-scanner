@@ -1,11 +1,14 @@
 import asyncio
 
+from app.db.lead_results import has_recent_user_lead
+from app.metrics import user_lead_cooldown_skipped
 from app.queue import message_queue
 from app.db.niches import get_active_niches
 from app.db.telegram_configs import get_telegram_config_by_company
 from app.bot.sender import send_to_leads
 from app.sender_utils import enrich_sender_info
 from app.lead_processor import process_message
+from app.settings import USER_LEAD_COOLDOWN_MINUTES
 
 
 async def process_job(job: dict):
@@ -17,6 +20,31 @@ async def process_job(job: dict):
         return
 
     for niche in niches:
+        sender_id = job.get("sender_id")
+
+        if has_recent_user_lead(
+            user_id=sender_id,
+            niche_id=niche["id"],
+            cooldown_minutes=USER_LEAD_COOLDOWN_MINUTES,
+        ):
+            user_lead_cooldown_skipped.labels(
+                company_id=str(niche["company_id"]),
+                niche_id=str(niche["id"]),
+            ).inc()
+
+            print(
+                (
+                    "⏳ Пропуск сообщения по cooldown: "
+                    f"sender_id={sender_id}, "
+                    f"company_id={niche['company_id']}, "
+                    f"niche_id={niche['id']}, "
+                    f"cooldown={USER_LEAD_COOLDOWN_MINUTES}m"
+                ),
+                flush=True,
+            )
+
+            continue
+
         print(
             f"🔎 Проверка ниши: {niche['company_name']} / {niche['name']}",
             flush=True,

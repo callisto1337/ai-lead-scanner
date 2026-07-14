@@ -37,6 +37,12 @@ AI_TIME = Histogram(
     "AI request duration in seconds",
 )
 
+user_lead_cooldown_skipped = Counter(
+    "lead_scanner_user_cooldown_skipped_total",
+    "Messages skipped because the user already produced a lead during cooldown",
+    ["company_id", "niche_id"],
+)
+
 
 def start_metrics(port: int, service_name: str = "app") -> None:
     start_http_server(port)
