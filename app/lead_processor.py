@@ -38,15 +38,18 @@ def process_message(
         description=ai_result.get("description", ""),
         prompt=ai_result.get("prompt"),
         raw_response=ai_result.get("raw_response"),
+        niche_score=ai_result.get("niche_score" , 0),
+        intent_score=ai_result.get("intent_score", 0),
     )
 
     if ai_result["lead"]:
         lead_detected.inc()
 
     return {
-        **ai_result,
         "lead_result_id": lead_result["id"],
-        "niche_id": niche["id"],
-        "niche_name": niche["name"],
-        "company_name": niche["company_name"],
+        "lead": ai_result["lead"],
+        "description": ai_result["description"],
+        "niche_score": ai_result["niche_score"],
+        "intent_score": ai_result["intent_score"],
+        "reply_author_relation": ai_result.get("reply_author_relation"),
     }

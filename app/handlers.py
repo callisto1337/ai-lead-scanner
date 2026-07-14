@@ -22,7 +22,7 @@ async def handle_new_message(event):
         return
 
     if event.message.post:
-        print("⏭️ Пропуск поста канала")
+        print("⏭️ Пропуск поста канала", flush=True)
         return
 
     sender = await event.get_sender()
@@ -30,8 +30,10 @@ async def handle_new_message(event):
     if sender and getattr(sender, "bot", False):
         return
 
-    if sender and is_blacklisted(sender.id):
-        print("⛔ BLACKLIST USER:", sender.id, flush=True)
+    sender_id = sender.id if sender else None
+
+    if sender_id and is_blacklisted(sender_id):
+        print("⛔ BLACKLIST USER:", sender_id, flush=True)
         return
 
     text = event.message.text or ""
@@ -40,37 +42,51 @@ async def handle_new_message(event):
     if not clean_text:
         return
 
-    short_text = clean_text[:150] + "..." if len(clean_text) > 150 else clean_text
+    short_text = (
+        clean_text[:150] + "..."
+        if len(clean_text) > 150
+        else clean_text
+    )
+
     print("💬 Новое сообщение:", short_text, flush=True)
 
     prefilter_result = prefilter_message(clean_text)
 
     if not prefilter_result["ok"]:
         spam_detected.inc()
-        print(f"❌ {prefilter_result['reason']}", flush=True)
+
+        print(
+            f"❌ {prefilter_result['reason']}",
+            flush=True,
+        )
         print("---------------", flush=True)
         return
 
     save_seen_message(clean_text)
 
     reply_text = None
+    reply_sender_id = None
+    reply_tg_message_id = None
 
     if event.message.reply_to_msg_id:
         reply = await event.get_reply_message()
 
-        if reply and reply.text:
-            reply_text = reply.text.strip()
-    else:
-        reply = None
+        if reply:
+            reply_tg_message_id = reply.id
+            reply_sender_id = reply.sender_id
+
+            if reply.text:
+                reply_text = reply.text.strip()
 
     source_link = await build_tg_link(event)
 
     message_id = save_message(
         {
             "text": clean_text,
-            "user_id": sender.id if sender else None,
+            "user_id": sender_id,
             "link": source_link,
             "tg_created_at": event.message.date,
+            "reply_sender_id": reply_sender_id,
         },
         event,
     )
@@ -82,16 +98,20 @@ async def handle_new_message(event):
                 "message_id": message_id,
                 "tg_chat_id": event.chat_id,
                 "tg_message_id": event.message.id,
-                "reply_tg_message_id": reply.id if reply else None,
+                "reply_tg_message_id": reply_tg_message_id,
                 "reply_text": reply_text,
+                "reply_sender_id": reply_sender_id,
                 "source_link": source_link,
-                "sender_id": sender.id if sender else None,
+                "sender_id": sender_id,
                 "sender": sender,
             }
         )
 
         print(
-            f"📥 Сообщение добавлено в очередь. queue_size={message_queue.qsize()}",
+            (
+                "📥 Сообщение добавлено в очередь. "
+                f"queue_size={message_queue.qsize()}"
+            ),
             flush=True,
         )
 

@@ -49,7 +49,8 @@ async def process_job(job: dict):
 
         print(
             f"🤖 Объяснение: {result.get('description', 'Нет объяснения')} "
-            f"| score={result.get('score')} "
+            f"| intent_score={result.get('intent_score')} "
+            f"| niche_score={result.get('niche_score')} "
             f"| prompt={result.get('prompt_version')}",
             flush=True,
         )

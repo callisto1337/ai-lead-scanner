@@ -32,7 +32,7 @@ async def send_to_leads(
     leads_topic_id = telegram_config.get("leads_topic_id")
 
     text = build_lead_message(
-        lead=result,
+        result=result
     )
 
     max_len = 3900

@@ -34,11 +34,11 @@ def build_prompt(
 
     if reply_text:
         reply_block = f"""
-    Автор reply относительно автора текущего сообщения:
-    {reply_author_relation}
+Автор reply относительно автора текущего сообщения:
+{reply_author_relation}
 
-    Текст reply:
-    {reply_text}
+Текст reply:
+{reply_text}
     """.strip()
     else:
         reply_block = "Reply отсутствует."

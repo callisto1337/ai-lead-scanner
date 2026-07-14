@@ -47,34 +47,44 @@ def truncate_text(text: str, max_len: int = 1000) -> str:
 
 
 def build_lead_message(
-    lead,
+    result,
     rating_block: str | None=None,
 ):
-    score = lead.get("score")
+    score = result.get("score")
     score_block = f"\n🎯 Score: {score}" if score is not None else ""
-    reply_text = lead.get("reply_text")
+    reply_text = result.get("reply_text")
+    reply_author_relation = result.get("reply_author_relation")
     reply_block = ""
 
     if reply_text:
-        reply_block = f"""
-↩️ Сообщение, на которое ответили:
-<blockquote>{html.escape(truncate_text(reply_text))}</blockquote>
-"""
+        relation_label = {
+            "тот же автор": "👤 Reply того же автора",
+            "другой автор": "👥 Reply другого автора",
+            "неизвестно": "❔ Автор reply неизвестен",
+        }.get(
+            reply_author_relation,
+            "↩️ Reply",
+        )
+
+        reply_block = (
+            f"\n{relation_label}:\n"
+            f"{reply_text}\n"
+        )
 
     message = f"""
 🔥 НОВЫЙ ЛИД
 {reply_block}
 💬 Сообщение:
-<pre>{html.escape(lead.get("text", ""))}</pre>
+<pre>{html.escape(result.get("text", ""))}</pre>
 
 🤖 AI:
-{html.escape(str(lead.get("description", "")))}{score_block}
+{html.escape(str(result.get("description", "")))}{score_block}
 
 👤 Пользователь:
-{lead.get("user_link", "нет ссылки")}
+{result.get("user_link", "нет ссылки")}
 
 🔗 Источник:
-{html.escape(lead.get("link", "нет ссылки"))}
+{html.escape(result.get("link", "нет ссылки"))}
 """
 
     if rating_block:
