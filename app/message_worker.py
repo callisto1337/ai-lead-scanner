@@ -26,11 +26,10 @@ async def process_job(job: dict):
             process_message,
             clean_text=job["clean_text"],
             message_id=job["message_id"],
-            tg_chat_id=job["tg_chat_id"],
-            tg_message_id=job["tg_message_id"],
-            reply_tg_message_id=job["reply_tg_message_id"],
-            reply_text=job.get("reply_text"),
             niche=niche,
+            sender_id=job.get("sender_id"),
+            reply_text=job.get("reply_text"),
+            reply_sender_id=job.get("reply_sender_id"),
         )
 
         if not result:

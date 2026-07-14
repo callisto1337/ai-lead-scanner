@@ -11,24 +11,21 @@ from app.metrics import (
 def process_message(
     clean_text: str,
     message_id: str,
-    tg_chat_id: int,
-    tg_message_id: int,
     niche: dict,
-    reply_tg_message_id: int | None = None,
+    sender_id: int | None = None,
     reply_text: str | None = None,
+    reply_sender_id: int | None = None,
 ) -> dict | None:
     message_received.inc()
-
     ai_request.inc()
 
     with AI_TIME.time():
         ai_result = is_lead(
             text=clean_text,
-            tg_chat_id=tg_chat_id,
-            tg_message_id=tg_message_id,
             niche=niche,
-            reply_tg_message_id=reply_tg_message_id,
+            sender_id=sender_id,
             reply_text=reply_text,
+            reply_sender_id=reply_sender_id,
         )
 
     if not ai_result:
