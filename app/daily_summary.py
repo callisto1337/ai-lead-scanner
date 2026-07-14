@@ -1,0 +1,173 @@
+import asyncio
+from datetime import datetime, timedelta, timezone
+from telegram import Bot
+
+from app.db.daily_summary import format_period, get_last_24_hours_period, get_active_summary_targets, \
+    get_daily_summary_stats
+from app.settings import BOT_TOKEN
+
+
+def build_daily_summary_message(
+    stats: list[dict],
+    started_at: datetime,
+    ended_at: datetime,
+) -> str:
+    blocks = [
+        "📊 Сводка за последние 24 часа",
+        f"🕒 {format_period(started_at, ended_at)}",
+    ]
+
+    if not stats:
+        blocks.append("\nНет активных ниш.")
+        return "\n".join(blocks)
+
+    for item in stats:
+        precision = (
+            f"{item['precision']:.1f}%"
+            if item["precision"] is not None
+            else "нет данных"
+        )
+
+        avg_niche = (
+            f"{item['avg_niche_score']:.1f}"
+            if item["avg_niche_score"] is not None
+            else "—"
+        )
+
+        avg_intent = (
+            f"{item['avg_intent_score']:.1f}"
+            if item["avg_intent_score"] is not None
+            else "—"
+        )
+
+        blocks.append(
+            "\n".join(
+                [
+                    # "",
+                    # f"🏢 Компания: {item['company_name']}",
+                    # f"🎯 Ниша: {item['niche_name']}",
+                    "",
+                    f"Проверено сообщений: {item['checked']}",
+                    f"Найдено лидов: {item['leads_found']}",
+                    f"Доля лидов: {item['lead_percent']:.1f}%",
+                    "",
+                    f"Оценено оператором: {item['rated']}",
+                    f"👍 Хороших: {item['good']}",
+                    f"👎 Плохих: {item['bad']}",
+                    f"⏭️ Skip: {item['skipped']}",
+                    f"🚫 Spam: {item['spam']}",
+                    f"Точность: {precision}",
+                    "",
+                    # f"Средний niche_score: {avg_niche}",
+                    # f"Средний intent_score: {avg_intent}",
+                    # "",
+                    # "Reply среди найденных лидов:",
+                    # f"Без reply: {item['without_reply']}",
+                    # f"Тот же автор: {item['reply_same_author']}",
+                    # f"Другой автор: {item['reply_other_author']}",
+                    # f"Автор неизвестен: {item['reply_unknown_author']}",
+                    # "",
+                    # "Плохие лиды по минимальному score:",
+                    # f"75–79: {item['bad_score_75_79']}",
+                    # f"80 и выше: {item['bad_score_80_plus']}",
+                ]
+            )
+        )
+
+    return "\n".join(blocks)
+
+
+async def send_message_with_retry(
+    bot: Bot,
+    chat_id: int,
+    text: str,
+    metrics_topic_id: int | None,
+) -> None:
+    send_kwargs = {
+        "chat_id": chat_id,
+        "text": text,
+    }
+
+    # Значение 0 означает общий раздел группы.
+    # В таком случае message_thread_id передавать не нужно.
+    if metrics_topic_id:
+        send_kwargs["message_thread_id"] = metrics_topic_id
+
+    for attempt in range(3):
+        try:
+            await bot.send_message(**send_kwargs)
+            return
+        except Exception as error:
+            print(
+                (
+                    "⚠️ Ошибка отправки ежедневной сводки. "
+                    f"Попытка {attempt + 1}/3: {error}"
+                ),
+                flush=True,
+            )
+
+            if attempt < 2:
+                await asyncio.sleep(2 * (attempt + 1))
+
+    raise RuntimeError(
+        f"Не удалось отправить сводку в chat_id={chat_id}"
+    )
+
+
+async def send_summary_messages() -> None:
+    started_at, ended_at = get_last_24_hours_period()
+    targets = get_active_summary_targets()
+
+    if not targets:
+        print(
+            "ℹ️ Нет активных Telegram-конфигураций для сводки",
+            flush=True,
+        )
+        return
+
+    bot = Bot(BOT_TOKEN)
+
+    for target in targets:
+        company_id = target["company_id"]
+
+        stats = get_daily_summary_stats(
+            company_id=company_id,
+            started_at=started_at,
+            ended_at=ended_at,
+        )
+
+        text = build_daily_summary_message(
+            stats=stats,
+            started_at=started_at,
+            ended_at=ended_at,
+        )
+
+        await send_message_with_retry(
+            bot=bot,
+            chat_id=target["chat_id"],
+            text=text,
+            metrics_topic_id=target["metrics_topic_id"],
+        )
+
+        print(
+            (
+                "✅ Ежедневная сводка отправлена: "
+                f"company_id={company_id}, "
+                f"company={target['company_name']}"
+            ),
+            flush=True,
+        )
+
+
+async def job(context=None) -> None:
+    try:
+        await send_summary_messages()
+    except Exception as error:
+        print(
+            f"❌ Ошибка при отправке ежедневной сводки: {error}",
+            flush=True,
+        )
+
+
+if __name__ == "__main__":
+    asyncio.run(send_summary_messages())
