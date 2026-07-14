@@ -19,7 +19,7 @@ def build_rating_keyboard(lead_result_id: int):
                 callback_data=f"rate:{lead_result_id}:spam",
             ),
             InlineKeyboardButton(
-                "⏭️ Скип",
+                "⏭️ Пропустить",
                 callback_data=f"rate:{lead_result_id}:skip",
             ),
         ],

@@ -45,7 +45,7 @@ def get_rating_data(rating: str):
             "feedback": "skip",
             "human_lead": None,
             "label": "⏭️ пропущено",
-            "text": "⏭️ Оценка: скип",
+            "text": "⏭️ Оценка: пропущено",
         }
 
     return None
