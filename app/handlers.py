@@ -78,8 +78,13 @@ async def handle_new_message(event):
             if reply.text:
                 reply_text = reply.text.strip()
 
+    chat = await event.get_chat()
     source_link = await build_tg_link(event)
-
+    source_title = (
+        getattr(chat, "title", None)
+        or getattr(chat, "username", None)
+        or "Открыть источник"
+    )
     message_id = save_message(
         {
             "text": clean_text,
@@ -102,6 +107,7 @@ async def handle_new_message(event):
                 "reply_text": reply_text,
                 "reply_sender_id": reply_sender_id,
                 "source_link": source_link,
+                "source_title": source_title,
                 "sender_id": sender_id,
                 "sender": sender,
             }

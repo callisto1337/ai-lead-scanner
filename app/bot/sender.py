@@ -26,7 +26,6 @@ bot = Bot(
 async def send_to_leads(
     lead_result_id: int,
     result: dict,
-    context: list[str],
     telegram_config: dict,
 ) -> bool:
     leads_topic_id = telegram_config.get("leads_topic_id")

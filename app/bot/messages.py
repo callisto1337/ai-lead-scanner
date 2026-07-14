@@ -46,12 +46,28 @@ def truncate_text(text: str, max_len: int = 1000) -> str:
     return text[:max_len].rstrip() + "\n…обрезано"
 
 
+def build_source_block(
+    source_link: str | None,
+    source_title: str | None,
+) -> str:
+    title = source_title or "Открыть источник"
+
+    if not source_link:
+        return f"{html.escape(title)}"
+
+    return (
+        f'<a href="{html.escape(source_link, quote=True)}">'
+        f"{html.escape(title)}</a>"
+    )
+
+
 def build_lead_message(
     result,
     rating_block: str | None=None,
 ):
-    score = result.get("score")
-    score_block = f"\n🎯 Score: {score}" if score is not None else ""
+    source_link = result.get("source_link")
+    source_title = result.get("source_title")
+    source_block = build_source_block(source_link, source_title)
     reply_text = result.get("reply_text")
     reply_author_relation = result.get("reply_author_relation")
     reply_block = ""
@@ -78,13 +94,13 @@ def build_lead_message(
 <pre>{html.escape(result.get("text", ""))}</pre>
 
 🤖 AI:
-{html.escape(str(result.get("description", "")))}{score_block}
+{html.escape(str(result.get("description", "")))}
 
 👤 Пользователь:
 {result.get("user_link", "нет ссылки")}
 
 🔗 Источник:
-{html.escape(result.get("link", "нет ссылки"))}
+{source_block}
 """
 
     if rating_block:

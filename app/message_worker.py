@@ -66,7 +66,8 @@ async def process_job(job: dict):
 
         enrich_sender_info(result, job["sender"])
 
-        result["link"] = job["source_link"]
+        result["source_link"] = job["source_link"]
+        result["source_title"] = job["source_title"]
         result["text"] = job["clean_text"]
         result["reply_text"] = job.get("reply_text")
 
@@ -99,7 +100,6 @@ async def process_job(job: dict):
             sent = await send_to_leads(
                 result["lead_result_id"],
                 result,
-                [],
                 telegram_config,
             )
 
