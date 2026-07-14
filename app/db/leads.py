@@ -13,6 +13,8 @@ def save_lead_result(
     niche_id: int,
     ai_lead: bool,
     description: str,
+    niche_score: int,
+    intent_score: int,
     prompt: str | None = None,
     raw_response: dict | None = None,
 ):
@@ -30,16 +32,20 @@ def save_lead_result(
                 raw_response,
                 detected_at,
                 created_at,
-                updated_at
+                updated_at,
+                niche_score,
+                intent_score
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT(message_id, niche_id)
             DO UPDATE SET
                 ai_lead = EXCLUDED.ai_lead,
                 description = EXCLUDED.description,
                 prompt = EXCLUDED.prompt,
                 raw_response = EXCLUDED.raw_response,
-                updated_at = EXCLUDED.updated_at
+                updated_at = EXCLUDED.updated_at,
+                niche_score = EXCLUDED.niche_score,
+                intent_score = EXCLUDED.intent_score
             RETURNING *
             """,
             (
@@ -52,6 +58,8 @@ def save_lead_result(
                 current_time,
                 current_time,
                 current_time,
+                niche_score,
+                intent_score
             )
         ).fetchone()
 

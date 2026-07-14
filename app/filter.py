@@ -355,6 +355,7 @@ def is_lead(
         "niche_score": niche_score,
         "intent_score": intent_score,
         "description": data.get("description") or "",
+        "reply_author_relation": reply_author_relation,
         "raw_response": data,
         "prompt": prompt,
         "prompt_version": PROMPT_VERSION,
