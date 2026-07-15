@@ -70,6 +70,7 @@ def build_lead_message(
     source_block = build_source_block(source_link, source_title)
     reply_text = result.get("reply_text")
     reply_author_relation = result.get("reply_author_relation")
+    short_reply_text = truncate_text(reply_text, max_len=200)
     reply_block = ""
 
     if reply_text:
@@ -84,7 +85,7 @@ def build_lead_message(
 
         reply_block = (
             f"\n{relation_label}:\n"
-            f"{reply_text}\n"
+            f"{short_reply_text}\n"
         )
 
     message = f"""
