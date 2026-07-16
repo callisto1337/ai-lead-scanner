@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from telegram import Bot
 
 from app.db.daily_summary import format_period, get_last_24_hours_period, get_active_summary_targets, \
@@ -28,24 +28,9 @@ def build_daily_summary_message(
             else "нет данных"
         )
 
-        avg_niche = (
-            f"{item['avg_niche_score']:.1f}"
-            if item["avg_niche_score"] is not None
-            else "—"
-        )
-
-        avg_intent = (
-            f"{item['avg_intent_score']:.1f}"
-            if item["avg_intent_score"] is not None
-            else "—"
-        )
-
         blocks.append(
             "\n".join(
                 [
-                    # "",
-                    # f"🏢 Компания: {item['company_name']}",
-                    # f"🎯 Ниша: {item['niche_name']}",
                     "",
                     f"Проверено сообщений: {item['checked']}",
                     f"Найдено лидов: {item['leads_found']}",
@@ -58,18 +43,6 @@ def build_daily_summary_message(
                     f"🚫 Spam: {item['spam']}",
                     f"Точность: {precision}",
                     "",
-                    # f"Средний niche_score: {avg_niche}",
-                    # f"Средний intent_score: {avg_intent}",
-                    # "",
-                    # "Reply среди найденных лидов:",
-                    # f"Без reply: {item['without_reply']}",
-                    # f"Тот же автор: {item['reply_same_author']}",
-                    # f"Другой автор: {item['reply_other_author']}",
-                    # f"Автор неизвестен: {item['reply_unknown_author']}",
-                    # "",
-                    # "Плохие лиды по минимальному score:",
-                    # f"75–79: {item['bad_score_75_79']}",
-                    # f"80 и выше: {item['bad_score_80_plus']}",
                 ]
             )
         )

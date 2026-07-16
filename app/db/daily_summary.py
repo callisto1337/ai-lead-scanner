@@ -2,8 +2,6 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from telegram import Bot
-
 from app.db import get_connection
 
 

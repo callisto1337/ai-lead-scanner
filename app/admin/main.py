@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from sqladmin import Admin, ModelView
 from sqlalchemy import create_engine
-from fastapi import Form, Request
+from fastapi import Request
 from fastapi.responses import HTMLResponse
 from sqladmin import BaseView, expose
 
