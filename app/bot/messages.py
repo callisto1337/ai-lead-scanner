@@ -39,11 +39,19 @@ def build_rater_info(user):
     }
 
 
-def truncate_text(text: str, max_len: int = 1000) -> str:
-    if len(text) <= max_len:
+def truncate_text(
+    text: str | None,
+    limit: int = 200,
+) -> str | None:
+    if not text:
+        return None
+
+    text = text.strip()
+
+    if len(text) <= limit:
         return text
 
-    return text[:max_len].rstrip() + "\n…обрезано"
+    return text[:limit].rstrip() + "..."
 
 
 def build_source_block(
@@ -70,7 +78,7 @@ def build_lead_message(
     source_block = build_source_block(source_link, source_title)
     reply_text = result.get("reply_text")
     reply_author_relation = result.get("reply_author_relation")
-    short_reply_text = truncate_text(reply_text, max_len=200)
+    short_reply_text = truncate_text(reply_text, limit=200)
     reply_block = ""
 
     if reply_text:

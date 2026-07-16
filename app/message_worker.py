@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 
 from app.db.lead_results import has_recent_user_lead
 from app.metrics import user_lead_cooldown_skipped
@@ -106,11 +107,12 @@ async def process_job(job: dict):
             if not sent:
                 print("⚠️ Лид найден, но не отправлен в чат лидов", flush=True)
 
-        except Exception as e:
-            print(
-                f"❌ Ошибка при отправке лида: {type(e).__name__}: {e}",
-                flush=True,
-            )
+
+        except Exception:
+
+            print("❌ Ошибка при отправке лида:", flush=True)
+
+            traceback.print_exc()
 
 
 async def message_worker():

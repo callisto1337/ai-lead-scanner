@@ -22,12 +22,6 @@ def build_daily_summary_message(
         return "\n".join(blocks)
 
     for item in stats:
-        precision = (
-            f"{item['precision']:.1f}%"
-            if item["precision"] is not None
-            else "нет данных"
-        )
-
         blocks.append(
             "\n".join(
                 [
@@ -41,7 +35,6 @@ def build_daily_summary_message(
                     f"👎 Плохих: {item['bad']}",
                     f"⏭️ Skip: {item['skipped']}",
                     f"🚫 Spam: {item['spam']}",
-                    f"Точность: {precision}",
                     "",
                 ]
             )
