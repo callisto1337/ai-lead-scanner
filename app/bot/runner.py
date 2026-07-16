@@ -1,12 +1,12 @@
 import os
 from datetime import time, timezone, timedelta
-from prometheus_client import start_http_server
 from dotenv import load_dotenv
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
     CommandHandler,
 )
+from app.daily_summary import job as daily_summary_job
 
 from app.metrics import start_metrics
 from app.settings import BOT_TOKEN
