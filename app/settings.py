@@ -36,3 +36,9 @@ MEMORY_MAX_DISTANCE = float(os.getenv("MEMORY_MAX_DISTANCE", "0.65"))
 USER_LEAD_COOLDOWN_MINUTES = int(
     os.getenv("USER_LEAD_COOLDOWN_MINUTES", "60")
 )
+
+BOT_ADMIN_IDS = {
+    int(value.strip())
+    for value in os.getenv("BOT_ADMIN_IDS", "").split(",")
+    if value.strip()
+}

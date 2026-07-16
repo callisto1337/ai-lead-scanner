@@ -6,14 +6,14 @@ from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
 )
-from app.daily_summary import job as daily_summary_job
 
+from app.daily_summary import job as daily_summary_job
+from app.bot.handlers.report import report_company_callback, report_command
 from app.metrics import start_metrics
 from app.settings import BOT_TOKEN
 from app.bootstrap import bootstrap_app
 
 from .callbacks import handle_rating_callback
-from .commands import report_command
 
 bootstrap_app()
 
@@ -45,6 +45,12 @@ def run_bot():
     )
     app.add_handler(
         CommandHandler("report", report_command)
+    )
+    app.add_handler(
+        CallbackQueryHandler(
+            report_company_callback,
+            pattern=r"^report_company:\d+$",
+        )
     )
 
     print("🤖 Бот запущен", flush=True)
