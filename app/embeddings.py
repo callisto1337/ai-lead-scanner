@@ -1,5 +1,5 @@
 from sentence_transformers import SentenceTransformer
-from app.db import save_embedding
+from app.db.embeddings import save_embedding
 
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 

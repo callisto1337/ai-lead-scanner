@@ -1,4 +1,4 @@
-from app.db import get_connection
+from app.db.connection import get_connection
 
 
 def has_recent_user_lead(

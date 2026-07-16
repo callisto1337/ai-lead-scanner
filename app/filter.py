@@ -1,4 +1,4 @@
-from app.db import get_context_chain
+from app.db.messages import get_context_chain
 from app.model_client import call_model
 from app.retrieval import find_similar_messages
 from app.settings import MIN_NICHE_SCORE, MIN_INTENT_SCORE

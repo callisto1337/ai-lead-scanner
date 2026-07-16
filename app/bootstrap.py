@@ -1,4 +1,4 @@
-from app.db import init_db
+from app.db.schema import init_db
 
 
 def bootstrap_app():

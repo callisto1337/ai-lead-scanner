@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from app.db import get_connection
+from app.db.connection import get_connection
 
 
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")

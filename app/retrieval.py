@@ -1,5 +1,5 @@
 from app.embeddings import create_embedding, embedding_to_pgvector
-from app.db import get_connection
+from app.db.connection import get_connection
 from app.settings import MEMORY_MAX_DISTANCE
 
 

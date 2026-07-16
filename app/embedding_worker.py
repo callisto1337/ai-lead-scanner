@@ -1,6 +1,6 @@
 import asyncio
 
-from app.db import get_messages_without_embeddings
+from app.db.embeddings import get_messages_without_embeddings
 from app.embeddings import create_embedding, save_embedding
 
 
