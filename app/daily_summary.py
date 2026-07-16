@@ -84,45 +84,50 @@ async def send_summary_messages() -> None:
     started_at, ended_at = get_last_24_hours_period()
     targets = get_active_summary_targets()
 
-    if not targets:
-        print(
-            "ℹ️ Нет активных Telegram-конфигураций для сводки",
-            flush=True,
-        )
-        return
-
     bot = Bot(BOT_TOKEN)
 
     for target in targets:
-        company_id = target["company_id"]
+        try:
+            stats = get_daily_summary_stats(
+                company_id=target["company_id"],
+                started_at=started_at,
+                ended_at=ended_at,
+            )
 
-        stats = get_daily_summary_stats(
-            company_id=company_id,
-            started_at=started_at,
-            ended_at=ended_at,
-        )
+            text = build_daily_summary_message(
+                stats=stats,
+                started_at=started_at,
+                ended_at=ended_at,
+            )
 
-        text = build_daily_summary_message(
-            stats=stats,
-            started_at=started_at,
-            ended_at=ended_at,
-        )
+            await send_message_with_retry(
+                bot=bot,
+                chat_id=target["chat_id"],
+                text=text,
+                metrics_topic_id=target["metrics_topic_id"],
+            )
 
-        await send_message_with_retry(
-            bot=bot,
-            chat_id=target["chat_id"],
-            text=text,
-            metrics_topic_id=target["metrics_topic_id"],
-        )
+            print(
+                (
+                    "✅ Ежедневная сводка отправлена: "
+                    f"company_id={target['company_id']}, "
+                    f"company={target['company_name']}"
+                ),
+                flush=True,
+            )
 
-        print(
-            (
-                "✅ Ежедневная сводка отправлена: "
-                f"company_id={company_id}, "
-                f"company={target['company_name']}"
-            ),
-            flush=True,
-        )
+        except Exception as error:
+            print(
+                (
+                    "❌ Ошибка отправки сводки: "
+                    f"company_id={target['company_id']}, "
+                    f"company={target['company_name']}, "
+                    f"chat_id={target['chat_id']}, "
+                    f"metrics_topic_id={target['metrics_topic_id']}, "
+                    f"error={error}"
+                ),
+                flush=True,
+            )
 
 
 async def job(context=None) -> None:
