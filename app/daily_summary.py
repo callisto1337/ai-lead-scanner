@@ -89,9 +89,7 @@ def build_daily_summary_message(
             "\n".join(
                 [
                     "",
-                    f"Проверено сообщений: {item['checked']}",
                     f"Найдено лидов: {item['leads_found']}",
-                    f"Доля лидов: {item['lead_percent']:.1f}%",
                     "",
                     f"Оценено оператором: {item['rated']}",
                     f"👍 Хороших: {item['good']}",
