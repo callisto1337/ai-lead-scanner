@@ -11,8 +11,9 @@ from app.settings import BOT_TOKEN
 
 async def send_company_summary(
     company_id: int,
+    bot: Bot,
     chat_id: int | None = None,
-) -> None:
+):
     started_at, ended_at = get_last_24_hours_period()
 
     company = get_company_by_id(company_id)
@@ -41,13 +42,8 @@ async def send_company_summary(
     target_chat_id = (
         chat_id
         if chat_id is not None
-        else config.get("chat_id")
+        else config["chat_id"]
     )
-
-    if not target_chat_id:
-        raise ValueError(
-            f"Не указан chat_id для company_id={company_id}"
-        )
 
     target_thread_id = (
         None
@@ -55,25 +51,32 @@ async def send_company_summary(
         else config.get("metrics_topic_id")
     )
 
-    bot = Bot(BOT_TOKEN)
-
-    await send_message_with_retry(
+    message = await send_message_with_retry(
         bot=bot,
         chat_id=target_chat_id,
         text=text,
         message_thread_id=target_thread_id,
     )
 
+    company_name = (
+        company.get("company_name")
+        or company.get("name")
+        or str(company_id)
+    )
+
     print(
         (
             "✅ Сводка отправлена: "
             f"company_id={company_id}, "
-            f"company={company['company_name']}, "
+            f"company={company_name}, "
             f"chat_id={target_chat_id}, "
+            f"message_id={message.id}, "
             f"thread_id={target_thread_id}"
         ),
         flush=True,
     )
+
+    return message
 
 
 def build_daily_summary_message(
@@ -115,35 +118,37 @@ async def send_message_with_retry(
     chat_id: int,
     text: str,
     message_thread_id: int | None = None,
-) -> None:
-    send_kwargs = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML",
-    }
-    attempts = 0
+):
+    last_error: Exception | None = None
 
-    if message_thread_id:
-        send_kwargs["message_thread_id"] = message_thread_id
-
-    for attempt in range(1, attempts + 1):
+    for attempt in range(1, 4):
         try:
-            await bot.send_message(**send_kwargs)
-            return
+            kwargs = {
+                "chat_id": chat_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            }
 
-        except Exception as exc:
+            if message_thread_id is not None:
+                kwargs["message_thread_id"] = message_thread_id
+
+            return await bot.send_message(**kwargs)
+
+        except Exception as error:
+            last_error = error
+
             print(
                 (
-                    "⚠️ Ошибка отправки ежедневной сводки. "
-                    f"Попытка {attempt}/{attempts}: {exc}"
+                    f"⚠️ Ошибка отправки сводки. "
+                    f"Попытка {attempt}/3: {error}"
                 ),
                 flush=True,
             )
 
-            if attempt == attempts:
-                raise RuntimeError(
-                    f"Не удалось отправить сводку в chat_id={chat_id}"
-                ) from exc
+    raise RuntimeError(
+        f"Не удалось отправить сводку в chat_id={chat_id}"
+    ) from last_error
 
 
 async def send_summary_messages() -> None:

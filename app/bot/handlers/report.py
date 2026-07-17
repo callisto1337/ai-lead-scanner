@@ -84,6 +84,7 @@ async def report_company_callback(
     try:
         await send_company_summary(
             company_id=company_id,
+            bot=context.bot,
             chat_id=chat.id,
         )
 
