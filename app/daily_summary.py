@@ -42,7 +42,7 @@ async def send_company_summary(
         bot=bot,
         chat_id=target_chat_id,
         text=text,
-        metrics_topic_id=target["metrics_topic_id"],
+        metrics_topic_id=target["metrics_topic_id"] if chat_id is None else None,
     )
 
     print(
@@ -93,37 +93,36 @@ async def send_message_with_retry(
     bot: Bot,
     chat_id: int,
     text: str,
-    metrics_topic_id: int | None,
+    message_thread_id: int | None = None,
 ) -> None:
     send_kwargs = {
         "chat_id": chat_id,
         "text": text,
+        "parse_mode": "HTML",
     }
+    attempts = 0
 
-    # Значение 0 означает общий раздел группы.
-    # В таком случае message_thread_id передавать не нужно.
-    if metrics_topic_id:
-        send_kwargs["message_thread_id"] = metrics_topic_id
+    if message_thread_id:
+        send_kwargs["message_thread_id"] = message_thread_id
 
-    for attempt in range(3):
+    for attempt in range(1, attempts + 1):
         try:
             await bot.send_message(**send_kwargs)
             return
-        except Exception as error:
+
+        except Exception as exc:
             print(
                 (
                     "⚠️ Ошибка отправки ежедневной сводки. "
-                    f"Попытка {attempt + 1}/3: {error}"
+                    f"Попытка {attempt}/{attempts}: {exc}"
                 ),
                 flush=True,
             )
 
-            if attempt < 2:
-                await asyncio.sleep(2 * (attempt + 1))
-
-    raise RuntimeError(
-        f"Не удалось отправить сводку в chat_id={chat_id}"
-    )
+            if attempt == attempts:
+                raise RuntimeError(
+                    f"Не удалось отправить сводку в chat_id={chat_id}"
+                ) from exc
 
 
 async def send_summary_messages() -> None:
