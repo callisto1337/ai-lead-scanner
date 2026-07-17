@@ -2,37 +2,21 @@ import asyncio
 from datetime import datetime
 from telegram import Bot
 
+from app.db.companies import get_company_by_id
 from app.db.connection import get_connection
 from app.db.daily_summary import format_period, get_last_24_hours_period, get_active_summary_targets, \
     get_daily_summary_stats
 from app.settings import BOT_TOKEN
 
 
-async def send_company_summary(company_id: int) -> None:
+async def send_company_summary(
+    company_id: int,
+    chat_id: int | None = None,
+) -> None:
     started_at, ended_at = get_last_24_hours_period()
 
-    with get_connection() as conn:
-        target = conn.execute(
-            """
-            SELECT
-                tc.company_id,
-                tc.chat_id,
-                tc.metrics_topic_id,
-                c.name AS company_name
-            FROM telegram_configs tc
-
-            JOIN companies c
-                ON c.id = tc.company_id
-
-            WHERE tc.company_id = %s
-              AND tc.is_active = TRUE
-              AND c.is_active = TRUE
-              AND tc.chat_id IS NOT NULL
-
-            LIMIT 1
-            """,
-            (company_id,),
-        ).fetchone()
+    with get_connection():
+        target = get_company_by_id(company_id)
 
     if target is None:
         raise ValueError(
@@ -52,10 +36,11 @@ async def send_company_summary(company_id: int) -> None:
     )
 
     bot = Bot(BOT_TOKEN)
+    target_chat_id = chat_id or target["chat_id"]
 
     await send_message_with_retry(
         bot=bot,
-        chat_id=target["chat_id"],
+        chat_id=target_chat_id,
         text=text,
         metrics_topic_id=target["metrics_topic_id"],
     )

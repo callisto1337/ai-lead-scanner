@@ -33,7 +33,7 @@ async def report_command(
 
     if not companies:
         await message.reply_text(
-            "Нет активных компаний для отправки отчёта."
+            "Нет активных компаний для формирования отчёта."
         )
         return
 
@@ -48,7 +48,7 @@ async def report_command(
     ]
 
     await message.reply_text(
-        "Выберите компанию для отправки отчёта:",
+        "Выберите компанию:",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
@@ -76,32 +76,32 @@ async def report_company_callback(
         _, company_id_raw = query.data.split(":", maxsplit=1)
         company_id = int(company_id_raw)
     except (ValueError, AttributeError):
-        await query.edit_message_text(
-            "Некорректная команда."
-        )
+        await query.edit_message_text("Некорректная команда.")
         return
 
-    await query.edit_message_text(
-        "Формирую и отправляю отчёт..."
-    )
+    await query.edit_message_text("Формирую отчёт...")
 
     try:
-        await send_company_summary(company_id)
+        await send_company_summary(
+            company_id=company_id,
+            chat_id=chat.id,
+        )
 
         await query.edit_message_text(
-            "✅ Отчёт отправлен выбранной компании."
+            "✅ Отчёт отправлен в эту личную переписку."
         )
 
     except Exception:
         print(
             (
                 "❌ Ошибка ручной отправки отчёта: "
-                f"company_id={company_id}"
+                f"company_id={company_id}, "
+                f"admin_chat_id={chat.id}"
             ),
             flush=True,
         )
         traceback.print_exc()
 
         await query.edit_message_text(
-            "⚠️ Не удалось отправить отчёт."
+            "⚠️ Не удалось сформировать отчёт."
         )
