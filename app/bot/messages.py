@@ -1,4 +1,5 @@
 import html
+from typing import Any
 
 
 def build_rater_info(user):
@@ -69,6 +70,26 @@ def build_source_block(
     )
 
 
+def build_user_link(lead: dict[str, Any]) -> str:
+    sender_name = str(lead.get("sender_name") or "").strip()
+    sender_username = str(lead.get("sender_username") or "").lstrip("@").strip()
+    sender_id = str(lead.get("sender_id") or "").strip()
+
+    if sender_name:
+        label = sender_name
+    elif sender_username:
+        label = f"@{sender_username}"
+    else:
+        label = sender_id
+
+    if sender_username:
+        url = f"https://t.me/{sender_username}"
+    else:
+        url = f"tg://user?id={sender_id}"
+
+    return f'<a href="{html.escape(url, quote=True)}">{html.escape(label)}</a>'
+
+
 def build_lead_message(
     result,
     rating_block: str | None=None,
@@ -76,6 +97,7 @@ def build_lead_message(
     source_link = result.get("source_link")
     source_title = result.get("source_title")
     source_block = build_source_block(source_link, source_title)
+    user_link = build_user_link(result)
     reply_text = result.get("reply_text")
     reply_author_relation = result.get("reply_author_relation")
     short_reply_text = truncate_text(reply_text, limit=200)
@@ -106,7 +128,7 @@ def build_lead_message(
 {html.escape(str(result.get("description", "")))}
 
 👤 Пользователь:
-{result.get("user_link", "нет ссылки")}
+{user_link}
 
 🔗 Источник:
 {source_block}
