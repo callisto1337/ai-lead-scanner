@@ -13,6 +13,8 @@ def process_message(
     message_id: str,
     niche: dict,
     sender_id: int | None = None,
+    sender_name: str | None = None,
+    sender_username: str | None = None,
     reply_text: str | None = None,
     reply_sender_id: int | None = None,
 ) -> dict | None:
@@ -52,4 +54,7 @@ def process_message(
         "niche_score": ai_result["niche_score"],
         "intent_score": ai_result["intent_score"],
         "reply_author_relation": ai_result.get("reply_author_relation"),
+        "sender_id": sender_id,
+        "sender_name": sender_name,
+        "sender_username": sender_username,
     }

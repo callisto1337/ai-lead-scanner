@@ -31,6 +31,8 @@ async def handle_new_message(event):
         return
 
     sender_id = sender.id if sender else None
+    sender_name = getattr(sender, "firstname", None)
+    sender_username = getattr(sender, "username", None)
 
     if sender_id and is_blacklisted(sender_id):
         print("⛔ BLACKLIST USER:", sender_id, flush=True)
@@ -109,6 +111,8 @@ async def handle_new_message(event):
                 "source_link": source_link,
                 "source_title": source_title,
                 "sender_id": sender_id,
+                "sender_name": sender_name,
+                "sender_username": sender_username,
                 "sender": sender,
             }
         )

@@ -6,6 +6,7 @@ from app.db.companies import get_company_by_id
 from app.db.connection import get_connection
 from app.db.daily_summary import format_period, get_last_24_hours_period, get_active_summary_targets, \
     get_daily_summary_stats
+from app.db.telegram_configs import get_telegram_config_by_company
 from app.settings import BOT_TOKEN
 
 
@@ -14,6 +15,7 @@ async def send_company_summary(
     chat_id: int | None = None,
 ) -> None:
     started_at, ended_at = get_last_24_hours_period()
+    config = get_telegram_config_by_company(company_id)
 
     with get_connection():
         target = get_company_by_id(company_id)
@@ -38,11 +40,17 @@ async def send_company_summary(
     bot = Bot(BOT_TOKEN)
     target_chat_id = chat_id or target["chat_id"]
 
+    target_thread_id = (
+        None
+        if chat_id is not None
+        else config.get("metrics_topic_id")
+    )
+
     await send_message_with_retry(
         bot=bot,
         chat_id=target_chat_id,
         text=text,
-        metrics_topic_id=target["metrics_topic_id"] if chat_id is None else None,
+        message_thread_id=target_thread_id,
     )
 
     print(
@@ -149,7 +157,6 @@ async def send_summary_messages() -> None:
                 bot=bot,
                 chat_id=target["chat_id"],
                 text=text,
-                metrics_topic_id=target["metrics_topic_id"],
             )
 
             print(

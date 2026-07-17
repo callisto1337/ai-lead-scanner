@@ -75,19 +75,36 @@ def build_user_link(lead: dict[str, Any]) -> str:
     sender_username = str(lead.get("sender_username") or "").lstrip("@").strip()
     sender_id = str(lead.get("sender_id") or "").strip()
 
+    print(
+        {
+            "sender_name": lead.get("sender_name"),
+            "sender_username": lead.get("sender_username"),
+            "sender_id": lead.get("sender_id"),
+        },
+        flush=True,
+    )
+
     if sender_name:
         label = sender_name
     elif sender_username:
         label = f"@{sender_username}"
+    elif sender_id:
+        label = f"Пользователь {sender_id}"
     else:
-        label = sender_id
+        return "Не указан"
 
     if sender_username:
         url = f"https://t.me/{sender_username}"
-    else:
+    elif sender_id:
         url = f"tg://user?id={sender_id}"
+    else:
+        return html.escape(label)
 
-    return f'<a href="{html.escape(url, quote=True)}">{html.escape(label)}</a>'
+    return (
+        f'<a href="{html.escape(url, quote=True)}">'
+        f"{html.escape(label)}"
+        "</a>"
+    )
 
 
 def build_lead_message(

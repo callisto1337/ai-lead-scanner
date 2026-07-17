@@ -57,6 +57,8 @@ async def process_job(job: dict):
             message_id=job["message_id"],
             niche=niche,
             sender_id=job.get("sender_id"),
+            sender_name=job.get("sender_name"),
+            sender_username=job.get("sender_username"),
             reply_text=job.get("reply_text"),
             reply_sender_id=job.get("reply_sender_id"),
         )
