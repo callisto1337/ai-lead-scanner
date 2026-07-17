@@ -75,15 +75,6 @@ def build_user_link(lead: dict[str, Any]) -> str:
     sender_username = str(lead.get("sender_username") or "").lstrip("@").strip()
     sender_id = str(lead.get("sender_id") or "").strip()
 
-    print(
-        {
-            "sender_name": lead.get("sender_name"),
-            "sender_username": lead.get("sender_username"),
-            "sender_id": lead.get("sender_id"),
-        },
-        flush=True,
-    )
-
     if sender_name:
         label = sender_name
     elif sender_username:

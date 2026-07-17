@@ -3,7 +3,6 @@ from datetime import datetime
 from telegram import Bot
 
 from app.db.companies import get_company_by_id
-from app.db.connection import get_connection
 from app.db.daily_summary import format_period, get_last_24_hours_period, get_active_summary_targets, \
     get_daily_summary_stats
 from app.db.telegram_configs import get_telegram_config_by_company
@@ -15,14 +14,16 @@ async def send_company_summary(
     chat_id: int | None = None,
 ) -> None:
     started_at, ended_at = get_last_24_hours_period()
+
+    company = get_company_by_id(company_id)
     config = get_telegram_config_by_company(company_id)
 
-    with get_connection():
-        target = get_company_by_id(company_id)
+    if company is None:
+        raise ValueError(f"Компания company_id={company_id} не найдена")
 
-    if target is None:
+    if config is None:
         raise ValueError(
-            f"Не найдена активная Telegram-конфигурация company_id={company_id}"
+            f"Telegram-конфигурация company_id={company_id} не найдена"
         )
 
     stats = get_daily_summary_stats(
@@ -37,14 +38,24 @@ async def send_company_summary(
         ended_at=ended_at,
     )
 
-    bot = Bot(BOT_TOKEN)
-    target_chat_id = chat_id or target["chat_id"]
+    target_chat_id = (
+        chat_id
+        if chat_id is not None
+        else config.get("chat_id")
+    )
+
+    if not target_chat_id:
+        raise ValueError(
+            f"Не указан chat_id для company_id={company_id}"
+        )
 
     target_thread_id = (
         None
         if chat_id is not None
         else config.get("metrics_topic_id")
     )
+
+    bot = Bot(BOT_TOKEN)
 
     await send_message_with_retry(
         bot=bot,
@@ -55,9 +66,11 @@ async def send_company_summary(
 
     print(
         (
-            "✅ Ежедневная сводка отправлена вручную: "
+            "✅ Сводка отправлена: "
             f"company_id={company_id}, "
-            f"company={target['company_name']}"
+            f"company={company['company_name']}, "
+            f"chat_id={target_chat_id}, "
+            f"thread_id={target_thread_id}"
         ),
         flush=True,
     )
