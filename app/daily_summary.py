@@ -173,17 +173,21 @@ async def send_summary_messages() -> None:
                 ended_at=ended_at,
             )
 
-            await send_message_with_retry(
+            message = await send_message_with_retry(
                 bot=bot,
-                chat_id=target["chat_id"],
+                chat_id=target['chat_id'],
                 text=text,
+                message_thread_id=target['metrics_topic_id'],
             )
 
             print(
                 (
                     "✅ Ежедневная сводка отправлена: "
                     f"company_id={target['company_id']}, "
-                    f"company={target['company_name']}"
+                    f"company={target['company_name']}, "
+                    f"chat_id={target['chat_id']}, "
+                    f"thread_id={target['metrics_topic_id']}, "
+                    f"message_id={message.message_id}"
                 ),
                 flush=True,
             )
