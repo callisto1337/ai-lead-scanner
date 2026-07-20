@@ -139,8 +139,9 @@ async def handle_new_message(
     source_link = await build_tg_link(event)
 
     source_title = (
-        chat.title
-        or chat.username
+        getattr(chat, "title", None)
+        or getattr(chat, "username", None)
+        or getattr(chat, "first_name", None)
         or "Открыть источник"
     )
 

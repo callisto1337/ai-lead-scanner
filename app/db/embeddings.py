@@ -1,8 +1,7 @@
 from typing import cast
 
 from app.db.connection import get_connection
-from app.embeddings import Embedding
-from app.types import MessageWithoutEmbedding, MessageId
+from app.types import MessageWithoutEmbedding, MessageId, Embedding
 
 EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 

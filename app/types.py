@@ -249,6 +249,7 @@ class DailySummaryStats(TypedDict):
 class TelegramChat(Protocol):
     title: str | None
     username: str | None
+    first_name: str | None
 
 
 class TelegramEventMessage(Protocol):
