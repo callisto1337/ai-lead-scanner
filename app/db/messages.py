@@ -1,30 +1,50 @@
-from datetime import datetime, timezone
 import uuid
 
+from datetime import datetime, timezone
+
 from app.db.connection import get_connection
-from app.types import TG_MESSAGE_ID, MESSAGE_ID
+from app.types import TgMessageId, MessageId, TgChatId, NewMessageEvent, MessageData, TgUserId
 
 
 def now_utc():
     return datetime.now(timezone.utc)
 
 
-def save_message(data, event):
-    message_id = str(uuid.uuid4())[:8]
+def save_message(
+    data: MessageData,
+    event: NewMessageEvent,
+) -> MessageId:
+    chat_id = event.chat_id
+
+    if chat_id is None:
+        raise ValueError("У сообщения отсутствует chat_id")
+
+    tg_chat_id = TgChatId(chat_id)
+    tg_message_id = TgMessageId(event.message.id)
+
+    message_id = MessageId(str(uuid.uuid4())[:8])
+
+    reply_to_id: MessageId | None = None
+    reply_sender_id: TgUserId | None = None
 
     reply = event.message.reply_to
-    reply_to_id = None
-    reply_sender_id = None
 
-    if reply:
-        reply_row = get_message_by_tg_id(
-            tg_chat_id=event.chat_id,
-            tg_message_id=reply.reply_to_msg_id,
-        )
+    if reply is not None:
+        reply_to_msg_id = reply.reply_to_msg_id
 
-        if reply_row is not None:
-            reply_to_id = reply_row["id"]
-            reply_sender_id = reply_row["user_id"]
+        if reply_to_msg_id is not None:
+            reply_row = get_message_by_tg_id(
+                tg_chat_id=tg_chat_id,
+                tg_message_id=TgMessageId(reply_to_msg_id),
+            )
+
+            if reply_row is not None:
+                reply_to_id = MessageId(reply_row["id"])
+
+                raw_reply_sender_id = reply_row["user_id"]
+
+                if raw_reply_sender_id is not None:
+                    reply_sender_id = TgUserId(raw_reply_sender_id)
 
     current_time = now_utc()
 
@@ -65,13 +85,13 @@ def save_message(data, event):
                 message_id,
                 reply_to_id,
                 reply_sender_id,
-                event.message.id,
-                event.chat_id,
+                tg_message_id,
+                tg_chat_id,
                 data["text"],
-                data.get("user_id"),
-                data.get("user_link"),
-                data.get("link"),
-                data.get("tg_created_at"),
+                data["user_id"],
+                data["user_link"],
+                data["link"],
+                data["tg_created_at"],
                 current_time,
                 current_time,
             ),
@@ -79,10 +99,18 @@ def save_message(data, event):
 
         conn.commit()
 
-    return row["id"]
+    if row is None:
+        raise RuntimeError("Не удалось сохранить сообщение")
+
+    raw_id = row["id"]
+
+    if not isinstance(raw_id, str):
+        raise TypeError("База данных вернула некорректный id сообщения")
+
+    return MessageId(raw_id)
 
 
-def get_message_by_id(message_id: str):
+def get_message_by_id(message_id: MessageId):
     with get_connection() as conn:
         return conn.execute(
             """
@@ -95,8 +123,8 @@ def get_message_by_id(message_id: str):
 
 
 def get_message_by_tg_id(
-    tg_chat_id: int,
-    tg_message_id: TG_MESSAGE_ID | None,
+    tg_chat_id: TgChatId,
+    tg_message_id: TgMessageId | None,
 ):
     if not tg_message_id:
         return None
@@ -117,65 +145,64 @@ def get_message_by_tg_id(
         ).fetchone()
 
 
-def get_reply_chain(message_id: str, limit: int = 3) -> list[str]:
-    chain = []
-    current_id = message_id
-
-    with get_connection() as conn:
-        while current_id and len(chain) < limit:
-            row = conn.execute(
-                """
-                SELECT text, reply_to_id
-                FROM messages
-                WHERE id = %s
-                """,
-                (current_id,)
-            ).fetchone()
-
-            if not row:
-                break
-
-            chain.append(row["text"])
-            current_id = row["reply_to_id"]
-
-    return list(reversed(chain))
-
-
-def get_chat_history(tg_chat_id: int, tg_message_id: int, limit: int = 3):
-    with get_connection() as conn:
-        rows = conn.execute(
-            """
-            SELECT text
-            FROM messages
-            WHERE tg_chat_id = %s
-              AND tg_message_id < %s
-            ORDER BY tg_message_id DESC
-            LIMIT %s
-            """,
-            (tg_chat_id, tg_message_id, limit)
-        ).fetchall()
-
-    return [r["text"] for r in reversed(rows)]
+# def get_reply_chain(message_id: MessageId, limit: int = 3) -> list[str]:
+#     chain = []
+#     current_id = message_id
+#
+#     with get_connection():
+#         while current_id and len(chain) < limit:
+#             row = conn.execute(
+#                 """
+#                 SELECT text, reply_to_id
+#                 FROM messages
+#                 WHERE id = %s
+#                 """,
+#                 (current_id,)
+#             ).fetchone()
+#
+#             if not row:
+#                 break
+#
+#             chain.append(row["text"])
+#             current_id = row["reply_to_id"]
+#
+#     return list(reversed(chain))
 
 
-def get_context_chain(
-    tg_chat_id: int,
-    tg_message_id: TG_MESSAGE_ID,
-    reply_to_id: MESSAGE_ID | None = None,
-    limit: int = 3,
-    message_id: MESSAGE_ID | None = None,
-) -> list[str]:
+# def get_chat_history(tg_chat_id: TgChatId, tg_message_id: TgMessageId, limit: int = 3):
+#     with get_connection():
+#         rows = conn.execute(
+#             """
+#             SELECT text
+#             FROM messages
+#             WHERE tg_chat_id = %s
+#               AND tg_message_id < %s
+#             ORDER BY tg_message_id DESC
+#             LIMIT %s
+#             """,
+#             (tg_chat_id, tg_message_id, limit)
+#         ).fetchall()
+#
+#     return [r["text"] for r in reversed(rows)]
 
-    # 1. reply-chain (если есть связь)
-    if reply_to_id:
-        chain = get_reply_chain(reply_to_id, limit)
 
-        if chain:
-            return chain
-
-    # 2. fallback: последние сообщения чата
-    return get_chat_history(
-        tg_chat_id,
-        tg_message_id,
-        limit
-    )
+# def get_context_chain(
+#     tg_chat_id: TgChatId,
+#     tg_message_id: TgMessageId,
+#     reply_to_id: MessageId | None = None,
+#     limit: int = 3,
+# ) -> list[str]:
+#
+#     # 1. reply-chain (если есть связь)
+#     if reply_to_id:
+#         chain = get_reply_chain(reply_to_id, limit)
+#
+#         if chain:
+#             return chain
+#
+#     # 2. fallback: последние сообщения чата
+#     return get_chat_history(
+#         tg_chat_id,
+#         tg_message_id,
+#         limit
+#     )

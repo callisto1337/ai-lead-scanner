@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
+from typing import Any, cast
+
 from psycopg.types.json import Jsonb
 
 from app.db.connection import get_connection
+from app.types import LeadResultId, TgUserId, MessageId, NicheId, SavedLeadResult
 
 
 def now_utc():
@@ -9,15 +12,15 @@ def now_utc():
 
 
 def save_lead_result(
-    message_id: str,
-    niche_id: int,
+    message_id: MessageId,
+    niche_id: NicheId,
     ai_lead: bool,
     description: str,
     niche_score: int,
     intent_score: int,
     prompt: str | None = None,
-    raw_response: dict | None = None,
-):
+    raw_response: dict[str, Any] | None = None,
+) -> SavedLeadResult | None:
     current_time = now_utc()
 
     with get_connection() as conn:
@@ -65,10 +68,10 @@ def save_lead_result(
 
         conn.commit()
 
-    return row
+    return cast(SavedLeadResult | None, row)
 
 
-def get_user_id_by_lead_result_id(lead_result_id: int) -> int | None:
+def get_user_id_by_lead_result_id(lead_result_id: LeadResultId) -> TgUserId | None:
     with get_connection() as conn:
         row = conn.execute(
             """

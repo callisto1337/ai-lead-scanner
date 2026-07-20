@@ -1,13 +1,14 @@
 from datetime import datetime, timezone
 
 from app.db.connection import get_connection
+from app.types import TgUserId
 
 
 def now():
     return datetime.now(timezone.utc)
 
 
-def is_blacklisted(user_id: int | None) -> bool:
+def is_blacklisted(user_id: TgUserId | None) -> bool:
     if not user_id:
         return False
 
@@ -26,9 +27,9 @@ def is_blacklisted(user_id: int | None) -> bool:
 
 
 def add_blacklisted_user(
-    user_id: int | None,
+    user_id: TgUserId | None,
     reason: str = "manual",
-    created_by: int | None = None,
+    created_by: TgUserId | None = None,
 ) -> bool:
     if not user_id:
         return False

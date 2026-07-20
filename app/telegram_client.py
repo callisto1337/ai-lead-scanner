@@ -1,4 +1,4 @@
-from telethon import TelegramClient
+from telethon import TelegramClient  # pyright: ignore[reportMissingTypeStubs]
 from app.settings import API_ID, API_HASH, SESSIONS_DIR
 
 

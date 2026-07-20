@@ -1,13 +1,16 @@
 import logging
+from typing import Any, cast
+
 import requests
-from typing import Any
-from app.settings import MODEL_NAME, MODEL_API_URL, AI_TIMEOUT_SECONDS
+
+from app.settings import AI_TIMEOUT_SECONDS, MODEL_API_URL, MODEL_NAME
+
 
 logger = logging.getLogger(__name__)
 
 
 def call_model(prompt: str) -> dict[str, Any] | None:
-    payload = {
+    payload: dict[str, Any] = {
         "prompt": prompt,
         "model": MODEL_NAME,
         "format": "json",
@@ -41,34 +44,45 @@ def call_model(prompt: str) -> dict[str, Any] | None:
 
             return None
 
-        result = response.json()
+        raw_result: object = response.json()
 
     except requests.Timeout:
         logger.exception("Model API timeout")
-
         print("❌ Model API timeout", flush=True)
-
         return None
 
-    except requests.RequestException as e:
+    except requests.RequestException as error:
         logger.exception("Model API request failed")
 
         print(
-            f"❌ Model API request failed: {type(e).__name__}: {e}",
+            (
+                "❌ Model API request failed: "
+                f"{type(error).__name__}: {error}"
+            ),
             flush=True,
         )
-
         return None
 
-    except ValueError as e:
+    except ValueError as error:
         logger.exception("Model API returned non-JSON response")
 
         print(
-            f"❌ Model API returned non-JSON response: {type(e).__name__}: {e}",
+            (
+                "❌ Model API returned non-JSON response: "
+                f"{type(error).__name__}: {error}"
+            ),
             flush=True,
         )
-
         return None
+
+    if not isinstance(raw_result, dict):
+        logger.warning(
+            "Model API response is not dict: %s",
+            raw_result,
+        )
+        return None
+
+    result = cast(dict[str, Any], raw_result)
 
     if not result.get("ok"):
         error = result.get("error")
@@ -98,4 +112,4 @@ def call_model(prompt: str) -> dict[str, Any] | None:
 
         return None
 
-    return data
+    return cast(dict[str, Any], data)

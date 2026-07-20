@@ -1,18 +1,19 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import cast
 from zoneinfo import ZoneInfo
 
 from app.db.connection import get_connection
-
+from app.types import CompanyId, TgChatId, SummaryTarget, NicheId, DailySummaryStats, DailySummaryRow
 
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 
 def get_daily_summary_stats(
-    company_id: int,
+    company_id: CompanyId,
     started_at: datetime,
     ended_at: datetime,
-) -> list[dict]:
+) -> list[DailySummaryStats]:
     """
     Возвращает статистику по активным нишам компании
     за интервал [started_at, ended_at).
@@ -152,37 +153,52 @@ def get_daily_summary_stats(
             ),
         ).fetchall()
 
-    result = []
+    typed_rows = cast(list[DailySummaryRow], rows)
+    result: list[DailySummaryStats] = []
 
-    for row in rows:
-        item = dict(row)
+    for row in typed_rows:
+        checked = row["checked"] or 0
+        leads_found = row["leads_found"] or 0
+        good = row["good"] or 0
+        bad = row["bad"] or 0
 
-        checked = item["checked"] or 0
-        leads_found = item["leads_found"] or 0
-        good = item["good"] or 0
-        bad = item["bad"] or 0
-
-        item["lead_percent"] = (
-            round(leads_found * 100 / checked, 1)
-            if checked
-            else 0
+        result.append(
+            {
+                "niche_id": NicheId(row["niche_id"]),
+                "niche_name": row["niche_name"],
+                "company_id": CompanyId(row["company_id"]),
+                "company_name": row["company_name"],
+                "checked": checked,
+                "leads_found": leads_found,
+                "rated": row["rated"] or 0,
+                "good": good,
+                "bad": bad,
+                "skipped": row["skipped"] or 0,
+                "spam": row["spam"] or 0,
+                "avg_niche_score": decimal_to_float(
+                    row["avg_niche_score"]
+                ),
+                "avg_intent_score": decimal_to_float(
+                    row["avg_intent_score"]
+                ),
+                "without_reply": row["without_reply"] or 0,
+                "reply_same_author": row["reply_same_author"] or 0,
+                "reply_other_author": row["reply_other_author"] or 0,
+                "reply_unknown_author": row["reply_unknown_author"] or 0,
+                "bad_score_75_79": row["bad_score_75_79"] or 0,
+                "bad_score_80_plus": row["bad_score_80_plus"] or 0,
+                "lead_percent": (
+                    round(leads_found * 100 / checked, 1)
+                    if checked
+                    else 0.0
+                ),
+                "precision": (
+                    round(good * 100 / (good + bad), 1)
+                    if good + bad
+                    else None
+                ),
+            }
         )
-
-        item["precision"] = (
-            round(good * 100 / (good + bad), 1)
-            if good + bad
-            else None
-        )
-
-        item["avg_niche_score"] = decimal_to_float(
-            item["avg_niche_score"]
-        )
-
-        item["avg_intent_score"] = decimal_to_float(
-            item["avg_intent_score"]
-        )
-
-        result.append(item)
 
     return result
 
@@ -193,8 +209,7 @@ def decimal_to_float(value: Decimal | None) -> float | None:
 
     return float(value)
 
-
-def get_active_summary_targets() -> list[dict]:
+def get_active_summary_targets() -> list[SummaryTarget]:
     """
     Возвращает активные Telegram-конфигурации,
     для которых задан чат отправки.
@@ -221,7 +236,15 @@ def get_active_summary_targets() -> list[dict]:
             """
         ).fetchall()
 
-    return [dict(row) for row in rows]
+    return [
+        {
+            "company_id": CompanyId(row["company_id"]),
+            "chat_id": TgChatId(row["chat_id"]),
+            "metrics_topic_id": row["metrics_topic_id"],
+            "company_name": str(row["company_name"]),
+        }
+        for row in rows
+    ]
 
 
 def get_last_24_hours_period() -> tuple[datetime, datetime]:

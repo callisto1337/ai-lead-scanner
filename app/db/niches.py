@@ -1,9 +1,12 @@
+from typing import cast
+
 from app.db.connection import get_connection
+from app.types import NicheWithConfig, PhraseRow, NicheConfigRow
 
 
-def get_active_niches():
+def get_active_niches_with_config() -> list[NicheWithConfig]:
     with get_connection() as conn:
-        rows = conn.execute(
+        raw_rows = conn.execute(
             """
             SELECT
                 n.id,
@@ -24,10 +27,11 @@ def get_active_niches():
             """
         ).fetchall()
 
-        niches = []
+        rows = cast(list[NicheConfigRow], raw_rows)
+        niches: list[NicheWithConfig] = []
 
         for row in rows:
-            keywords = conn.execute(
+            raw_keywords = conn.execute(
                 """
                 SELECT phrase
                 FROM niche_keywords
@@ -35,10 +39,10 @@ def get_active_niches():
                   AND is_active = TRUE
                 ORDER BY id
                 """,
-                (row["id"],)
+                (row["id"],),
             ).fetchall()
 
-            blacklist = conn.execute(
+            raw_blacklist = conn.execute(
                 """
                 SELECT phrase
                 FROM niche_blacklist
@@ -46,16 +50,27 @@ def get_active_niches():
                   AND is_active = TRUE
                 ORDER BY id
                 """,
-                (row["id"],)
+                (row["id"],),
             ).fetchall()
 
-            niches.append({
-                **row,
+            keywords = cast(list[PhraseRow], raw_keywords)
+            blacklist = cast(list[PhraseRow], raw_blacklist)
+
+            niche: NicheWithConfig = {
+                "id": row["id"],
+                "name": row["name"],
+                "slug": row["slug"],
+                "company_id": row["company_id"],
+                "company_name": row["company_name"],
+                "about": row["about"],
+                "extra_instructions": row["extra_instructions"],
                 "keywords": [item["phrase"] for item in keywords],
                 "blacklist": [item["phrase"] for item in blacklist],
-            })
+            }
 
-        return niches
+            niches.append(niche)
+
+    return niches
 
 
 def get_niches_for_select():

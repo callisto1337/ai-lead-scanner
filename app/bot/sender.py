@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timedelta
 
 from telegram import Bot, InlineKeyboardMarkup
 from telegram.error import TimedOut, NetworkError, RetryAfter
@@ -8,7 +9,7 @@ from app.settings import BOT_TOKEN
 from app.bot.keyboards import build_rating_keyboard
 from app.bot.messages import build_lead_message
 from app.metrics import telegram_send_errors
-
+from app.types import LeadResult, LeadResultId, TgConfig
 
 request = HTTPXRequest(
     connect_timeout=60,
@@ -24,14 +25,14 @@ bot = Bot(
 
 
 async def send_to_leads(
-    lead_result_id: int,
-    result: dict,
-    telegram_config: dict,
+    lead_result_id: LeadResultId,
+    result: LeadResult,
+    telegram_config: TgConfig,
 ) -> bool:
     leads_topic_id = telegram_config.get("leads_topic_id")
 
     text = build_lead_message(
-        result=result
+        result=result,
     )
 
     max_len = 3900
@@ -39,22 +40,20 @@ async def send_to_leads(
     if len(text) > max_len:
         text = text[:max_len] + "\n\n…сообщение обрезано"
 
-    kwargs = {
-        "chat_id": telegram_config["chat_id"],
-        "text": text,
-        "reply_markup": InlineKeyboardMarkup(
-            build_rating_keyboard(lead_result_id)
-        ),
-        "parse_mode": "HTML",
-        "disable_web_page_preview": True,
-    }
-
-    if leads_topic_id:
-        kwargs["message_thread_id"] = leads_topic_id
+    reply_markup = InlineKeyboardMarkup(
+        build_rating_keyboard(lead_result_id)
+    )
 
     for attempt in range(1, 4):
         try:
-            message = await bot.send_message(**kwargs)
+            message = await bot.send_message(
+                chat_id=telegram_config["chat_id"],
+                text=text,
+                reply_markup=reply_markup,
+                parse_mode="HTML",
+                disable_web_page_preview=True,
+                message_thread_id=leads_topic_id,
+            )
 
             print(
                 f"✅ Лид отправлен lead_result_id={lead_result_id}, "
@@ -65,7 +64,12 @@ async def send_to_leads(
             return True
 
         except RetryAfter as e:
-            wait_seconds = int(e.retry_after) + 1
+            retry_after = e.retry_after
+
+            if isinstance(retry_after, timedelta):
+                wait_seconds = int(retry_after.total_seconds()) + 1
+            else:
+                wait_seconds = retry_after + 1
 
             print(
                 f"⏳ Telegram RetryAfter {wait_seconds}s "

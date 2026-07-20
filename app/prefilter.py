@@ -1,16 +1,17 @@
 from app.db.dedup import exists_seen_message
 from app.db.stopwords import get_active_stopwords
+from app.types import PrefilterResult
 from app.utils import normalize, get_hash
 
 
-def reject(reason) -> dict:
+def reject(reason: str) -> PrefilterResult:
     return {
         "ok": False,
         "reason": reason,
     }
 
 
-def has_stopword(text: str):
+def has_stopword(text: str) -> str | None:
     text_lower = normalize(text)
 
     for word in get_active_stopwords():
@@ -29,7 +30,7 @@ def is_duplicate(text: str) -> bool:
     return exists_seen_message(msg_hash)
 
 
-def prefilter_message(text: str) -> dict:
+def prefilter_message(text: str) -> PrefilterResult:
     if not text:
         return reject("Пустое сообщение")
 

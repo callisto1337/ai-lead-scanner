@@ -1,6 +1,6 @@
 from html import escape
 
-from telegram import Update, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardMarkup, User, Message
 from telegram.ext import ContextTypes
 
 from app.bot.keyboards import (
@@ -11,47 +11,48 @@ from app.db.feedback import update_lead_feedback
 from app.db.leads import get_user_id_by_lead_result_id
 from app.db.blacklist_users import add_blacklisted_user
 from app.metrics import feedback_total
+from app.types import LeadResultId, RatingData, TgUserId
 
 FEEDBACK_MARKER = "\n\n<b>Оценка оператора</b>"
 
 
-def get_rating_data(rating: str):
+def get_rating_data(rating: str) -> RatingData | None:
     if rating == "good":
-        return {
-            "feedback": "good",
-            "human_lead": True,
-            "label": "👍 хороший лид",
-            "text": "👍 Оценка: хороший лид",
-        }
+        return RatingData(
+            feedback="good",
+            human_lead=True,
+            label="👍 хороший лид",
+            text="👍 Оценка: хороший лид",
+        )
 
     if rating == "bad":
-        return {
-            "feedback": "bad",
-            "human_lead": False,
-            "label": "👎 плохой лид",
-            "text": "👎 Оценка: плохой лид",
-        }
+        return RatingData(
+            feedback="bad",
+            human_lead=False,
+            label="👎 плохой лид",
+            text="👎 Оценка: плохой лид",
+        )
 
     if rating == "spam":
-        return {
-            "feedback": "spam",
-            "human_lead": None,
-            "label": "🚫 спам",
-            "text": "🚫 Оценка: спам",
-        }
+        return RatingData(
+            feedback="spam",
+            human_lead=None,
+            label="🚫 спам",
+            text="🚫 Оценка: спам",
+        )
 
     if rating == "skip":
-        return {
-            "feedback": "skip",
-            "human_lead": None,
-            "label": "⏭️ пропущено",
-            "text": "⏭️ Оценка: пропущено",
-        }
+        return RatingData(
+            feedback="skip",
+            human_lead=None,
+            label="⏭️ пропущено",
+            text="⏭️ Оценка: пропущено",
+        )
 
     return None
 
 
-def get_rater_text(user) -> str:
+def get_rater_text(user: User) -> str:
     if user.username:
         return f"@{user.username}"
 
@@ -83,10 +84,10 @@ def build_message_with_feedback(
 async def handle_rating_callback(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
-):
+) -> None:
     query = update.callback_query
 
-    if not query:
+    if query is None:
         return
 
     data = query.data or ""
@@ -94,15 +95,27 @@ async def handle_rating_callback(
 
     await query.answer()
 
+    message = query.message
+
+    if not isinstance(message, Message):
+        await query.answer(
+            "Исходное сообщение недоступно",
+            show_alert=True,
+        )
+        return
+
     if data.startswith("edit_rate:"):
         try:
             _, lead_result_id_raw = data.split(":")
-            lead_result_id = int(lead_result_id_raw)
+            lead_result_id = LeadResultId(int(lead_result_id_raw))
         except ValueError:
-            await query.answer("Некорректные данные", show_alert=True)
+            await query.answer(
+                "Некорректные данные",
+                show_alert=True,
+            )
             return
 
-        original_html = query.message.text_html or query.message.text or ""
+        original_html = message.text_html or message.text or ""
         clean_html = strip_feedback_block(original_html)
 
         await query.edit_message_text(
@@ -119,22 +132,31 @@ async def handle_rating_callback(
     try:
         action, lead_result_id_raw, rating = data.split(":")
     except ValueError:
-        await query.answer("Некорректные данные", show_alert=True)
+        await query.answer(
+            "Некорректные данные",
+            show_alert=True,
+        )
         return
 
     if action != "rate":
         return
 
     try:
-        lead_result_id = int(lead_result_id_raw)
+        lead_result_id = LeadResultId(int(lead_result_id_raw))
     except ValueError:
-        await query.answer("Некорректный ID лида", show_alert=True)
+        await query.answer(
+            "Некорректный ID лида",
+            show_alert=True,
+        )
         return
 
     rating_data = get_rating_data(rating)
 
     if not rating_data:
-        await query.answer("Неизвестная оценка", show_alert=True)
+        await query.answer(
+            "Неизвестная оценка",
+            show_alert=True,
+        )
         return
 
     user = query.from_user
@@ -152,7 +174,10 @@ async def handle_rating_callback(
     )
 
     if not ok:
-        await query.answer("Лид не найден", show_alert=True)
+        await query.answer(
+            "Лид не найден",
+            show_alert=True,
+        )
         return
 
     feedback_total.labels(
@@ -160,27 +185,38 @@ async def handle_rating_callback(
     ).inc()
 
     if rating_data["feedback"] == "spam":
-        spam_user_id = get_user_id_by_lead_result_id(lead_result_id)
+        spam_user_id = get_user_id_by_lead_result_id(
+            lead_result_id
+        )
 
         if spam_user_id:
             add_blacklisted_user(
                 user_id=spam_user_id,
-                reason=f"spam_feedback: lead_result_id={lead_result_id}",
-                created_by=user.id,
+                reason=(
+                    "spam_feedback: "
+                    f"lead_result_id={lead_result_id}"
+                ),
+                created_by=TgUserId(user.id),
             )
 
             print(
-                f"🚫 Пользователь добавлен в blacklist: "
-                f"user_id={spam_user_id}, lead_result_id={lead_result_id}",
+                (
+                    "🚫 Пользователь добавлен в blacklist: "
+                    f"user_id={spam_user_id}, "
+                    f"lead_result_id={lead_result_id}"
+                ),
                 flush=True,
             )
         else:
             print(
-                f"⚠️ Не удалось найти user_id для spam lead_result_id={lead_result_id}",
+                (
+                    "⚠️ Не удалось найти user_id для spam "
+                    f"lead_result_id={lead_result_id}"
+                ),
                 flush=True,
             )
 
-    original_html = query.message.text_html or query.message.text or ""
+    original_html = message.text_html or message.text or ""
 
     new_text = build_message_with_feedback(
         original_html=original_html,
@@ -197,4 +233,6 @@ async def handle_rating_callback(
         disable_web_page_preview=True,
     )
 
-    await query.answer(f"Оценка сохранена: {rating_data['label']}")
+    await query.answer(
+        f"Оценка сохранена: {rating_data['label']}"
+    )

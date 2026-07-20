@@ -12,8 +12,7 @@ from app.bot.handlers.report import report_company_callback, report_command
 from app.metrics import start_metrics
 from app.settings import BOT_TOKEN
 from app.bootstrap import bootstrap_app
-
-from .callbacks import handle_rating_callback
+from app.bot.callbacks import handle_rating_callback
 
 bootstrap_app()
 
@@ -34,9 +33,8 @@ def run_bot():
         .token(BOT_TOKEN) \
         .build()
 
-    app.add_handler(
-        CallbackQueryHandler(handle_rating_callback, pattern=r"^rate:")
-    )
+    job_queue = app.job_queue
+
     app.add_handler(
         CallbackQueryHandler(
             handle_rating_callback,
@@ -55,10 +53,13 @@ def run_bot():
 
     print("🤖 Бот запущен", flush=True)
 
+    if job_queue is None:
+        raise RuntimeError("JobQueue недоступен")
+
     try:
         # Moscow time = UTC+3
         msk_tz = timezone(timedelta(hours=3))
-        app.job_queue.run_daily(
+        job_queue.run_daily(
             daily_summary_job,
             time=time(hour=0, minute=0, tzinfo=msk_tz)
         )

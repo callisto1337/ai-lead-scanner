@@ -5,18 +5,19 @@ import traceback
 import threading
 import asyncio
 
-from telethon.errors import FloodWaitError
+from telethon.errors import FloodWaitError   # pyright: ignore[reportMissingTypeStubs]
 
 from app.embedding_worker import embedding_worker
 from app.message_worker import message_worker
 from app.metrics import start_metrics
+from app.types import TelegramClientProtocol
 
 
 def start_embedding_worker():
     asyncio.run(embedding_worker())
 
 
-def run_monitor(client):
+def run_monitor(client: TelegramClientProtocol):
     metrics_port = int(os.getenv("MONITOR_METRICS_PORT", "8002"))
 
     start_metrics(metrics_port, "Monitor")

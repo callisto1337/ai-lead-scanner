@@ -1,7 +1,9 @@
 from telegram import InlineKeyboardButton
 
+from app.types import LeadResultId
 
-def build_rating_keyboard(lead_result_id: int):
+
+def build_rating_keyboard(lead_result_id: LeadResultId):
     return [
         [
             InlineKeyboardButton(
@@ -26,7 +28,7 @@ def build_rating_keyboard(lead_result_id: int):
     ]
 
 
-def build_edit_rating_keyboard(lead_result_id: int):
+def build_edit_rating_keyboard(lead_result_id: LeadResultId):
     return [
         [
             InlineKeyboardButton(

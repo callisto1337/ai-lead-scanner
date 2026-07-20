@@ -1,43 +1,6 @@
 import html
-from typing import Any
 
-
-def build_rater_info(user):
-    if not user:
-        return {
-            "id": None,
-            "username": None,
-            "name": "",
-            "text": "неизвестный аккаунт",
-        }
-
-    first_name = getattr(user, "first_name", None)
-    last_name = getattr(user, "last_name", None)
-
-    name_parts = [
-        part
-        for part in (first_name, last_name)
-        if isinstance(part, str) and part
-    ]
-
-    full_name = " ".join(name_parts)
-
-    username = getattr(user, "username", None)
-    user_id = getattr(user, "id", None)
-
-    if username:
-        text = f"@{username}"
-    elif full_name:
-        text = f"{full_name} (ID: {user_id})"
-    else:
-        text = f"ID: {user_id}"
-
-    return {
-        "id": user_id,
-        "username": username,
-        "name": full_name,
-        "text": text,
-    }
+from app.types import LeadResult
 
 
 def truncate_text(
@@ -70,7 +33,7 @@ def build_source_block(
     )
 
 
-def build_user_link(lead: dict[str, Any]) -> str:
+def build_user_link(lead: LeadResult) -> str:
     sender_name = str(lead.get("sender_name") or "").strip()
     sender_username = str(lead.get("sender_username") or "").lstrip("@").strip()
     sender_id = str(lead.get("sender_id") or "").strip()
@@ -98,26 +61,32 @@ def build_user_link(lead: dict[str, Any]) -> str:
     )
 
 
+REPLY_RELATION_LABELS: dict[str, str] = {
+    "тот же автор": "👤 Reply того же автора",
+    "другой автор": "👥 Reply другого автора",
+    "неизвестно": "❔ Автор reply неизвестен",
+}
+
+
 def build_lead_message(
-    result,
-    rating_block: str | None=None,
-):
+    result: LeadResult,
+    rating_block: str | None = None,
+) -> str:
     source_link = result.get("source_link")
     source_title = result.get("source_title")
     source_block = build_source_block(source_link, source_title)
+
     user_link = build_user_link(result)
+
     reply_text = result.get("reply_text")
     reply_author_relation = result.get("reply_author_relation")
     short_reply_text = truncate_text(reply_text, limit=200)
+
     reply_block = ""
 
     if reply_text:
-        relation_label = {
-            "тот же автор": "👤 Reply того же автора",
-            "другой автор": "👥 Reply другого автора",
-            "неизвестно": "❔ Автор reply неизвестен",
-        }.get(
-            reply_author_relation,
+        relation_label = REPLY_RELATION_LABELS.get(
+            reply_author_relation or "",
             "↩️ Reply",
         )
 
@@ -133,7 +102,7 @@ def build_lead_message(
 <pre>{html.escape(result.get("text", ""))}</pre>
 
 🤖 AI:
-{html.escape(str(result.get("description", "")))}
+{html.escape(result.get("description", ""))}
 
 👤 Пользователь:
 {user_link}

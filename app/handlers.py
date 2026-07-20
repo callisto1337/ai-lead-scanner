@@ -1,23 +1,37 @@
 import asyncio
 
-from telethon import events
+from telethon import events  # pyright: ignore[reportMissingTypeStubs]
 
-from app.db.messages import save_message
 from app.db.blacklist_users import is_blacklisted
 from app.db.dedup import save_seen_message
+from app.db.messages import save_message
 from app.metrics import spam_detected
 from app.prefilter import prefilter_message
-from app.utils import build_tg_link, normalize
 from app.queue import message_queue
+from app.types import (
+    MessageData,
+    MessageQueueItem,
+    NewMessageEvent,
+    TelegramClientProtocol,
+    TgChatId,
+    TgMessageId,
+    TgUser,
+    TgUserId,
+)
+from app.utils import build_tg_link, normalize
 
 
-def register_handlers(client):
+def register_handlers(client: TelegramClientProtocol) -> None:
     @client.on(events.NewMessage())
-    async def handler(event):
+    async def handler(  # pyright: ignore[reportUnusedFunction]
+        event: NewMessageEvent,
+    ) -> None:
         await handle_new_message(event)
 
 
-async def handle_new_message(event):
+async def handle_new_message(
+    event: NewMessageEvent,
+) -> None:
     if event.out:
         return
 
@@ -25,16 +39,55 @@ async def handle_new_message(event):
         print("⏭️ Пропуск поста канала", flush=True)
         return
 
-    sender = await event.get_sender()
+    chat_id = event.chat_id
 
-    if sender and getattr(sender, "bot", False):
+    if chat_id is None:
         return
 
-    sender_id = sender.id if sender else None
-    sender_name = getattr(sender, "firstname", None)
-    sender_username = getattr(sender, "username", None)
+    tg_chat_id = TgChatId(chat_id)
 
-    if sender_id and is_blacklisted(sender_id):
+    sender = await event.get_sender()
+
+    if sender is not None and sender.bot:
+        return
+
+    sender_id: TgUserId | None = (
+        TgUserId(sender.id)
+        if sender is not None
+        else None
+    )
+
+    sender_name: str | None = None
+    sender_username: str | None = None
+    sender_data: TgUser | None = None
+
+    if sender is not None:
+        sender_name = " ".join(
+            part
+            for part in (
+                sender.first_name,
+                sender.last_name,
+            )
+            if part is not None
+        ).strip() or None
+
+        sender_username = sender.username
+
+        sender_data = TgUser(
+            id=TgUserId(sender.id),
+            bot=sender.bot,
+            first_name=sender.first_name,
+            last_name=sender.last_name,
+            username=sender.username,
+        )
+
+    sender_username: str | None = (
+        sender.username
+        if sender is not None
+        else None
+    )
+
+    if sender_id is not None and is_blacklisted(sender_id):
         print("⛔ BLACKLIST USER:", sender_id, flush=True)
         return
 
@@ -66,56 +119,62 @@ async def handle_new_message(event):
 
     save_seen_message(clean_text)
 
-    reply_text = None
-    reply_sender_id = None
-    reply_tg_message_id = None
+    reply_text: str | None = None
+    reply_sender_id: TgUserId | None = None
+    reply_tg_message_id: TgMessageId | None = None
 
-    if event.message.reply_to_msg_id:
+    if event.message.reply_to_msg_id is not None:
         reply = await event.get_reply_message()
 
-        if reply:
-            reply_tg_message_id = reply.id
-            reply_sender_id = reply.sender_id
+        if reply is not None:
+            reply_tg_message_id = TgMessageId(reply.id)
+
+            if reply.sender_id is not None:
+                reply_sender_id = TgUserId(reply.sender_id)
 
             if reply.text:
                 reply_text = reply.text.strip()
 
     chat = await event.get_chat()
     source_link = await build_tg_link(event)
+
     source_title = (
-        getattr(chat, "title", None)
-        or getattr(chat, "username", None)
+        chat.title
+        or chat.username
         or "Открыть источник"
     )
+
+    message_data: MessageData = {
+        "text": clean_text,
+        "user_id": sender_id,
+        "user_link": None,
+        "link": source_link,
+        "tg_created_at": event.message.date,
+    }
+
     message_id = save_message(
-        {
-            "text": clean_text,
-            "user_id": sender_id,
-            "link": source_link,
-            "tg_created_at": event.message.date,
-            "reply_sender_id": reply_sender_id,
-        },
+        message_data,
         event,
     )
 
+    queue_item: MessageQueueItem = {
+        "clean_text": clean_text,
+        "message_id": message_id,
+        "tg_chat_id": tg_chat_id,
+        "tg_message_id": TgMessageId(event.message.id),
+        "reply_tg_message_id": reply_tg_message_id,
+        "reply_text": reply_text,
+        "reply_sender_id": reply_sender_id,
+        "source_link": source_link,
+        "source_title": source_title,
+        "sender_id": sender_id,
+        "sender_name": sender_name,
+        "sender_username": sender_username,
+        "sender": sender_data,
+    }
+
     try:
-        message_queue.put_nowait(
-            {
-                "clean_text": clean_text,
-                "message_id": message_id,
-                "tg_chat_id": event.chat_id,
-                "tg_message_id": event.message.id,
-                "reply_tg_message_id": reply_tg_message_id,
-                "reply_text": reply_text,
-                "reply_sender_id": reply_sender_id,
-                "source_link": source_link,
-                "source_title": source_title,
-                "sender_id": sender_id,
-                "sender_name": sender_name,
-                "sender_username": sender_username,
-                "sender": sender,
-            }
-        )
+        message_queue.put_nowait(queue_item)
 
         print(
             (
@@ -130,4 +189,3 @@ async def handle_new_message(event):
             "⚠️ Очередь AI заполнена, сообщение пропущено",
             flush=True,
         )
-        return

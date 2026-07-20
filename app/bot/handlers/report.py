@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 from app.settings import BOT_ADMIN_IDS
 from app.daily_summary import send_company_summary
 from app.db.companies import get_report_companies
+from app.types import CompanyId
 
 
 def is_admin(user_id: int | None) -> bool:
@@ -72,10 +73,16 @@ async def report_company_callback(
 
     await query.answer()
 
+    callback_data = query.data
+
+    if callback_data is None:
+        await query.edit_message_text("Некорректная команда.")
+        return
+
     try:
-        _, company_id_raw = query.data.split(":", maxsplit=1)
-        company_id = int(company_id_raw)
-    except (ValueError, AttributeError):
+        _, company_id_raw = callback_data.split(":", maxsplit=1)
+        company_id = CompanyId(int(company_id_raw))
+    except ValueError:
         await query.edit_message_text("Некорректная команда.")
         return
 

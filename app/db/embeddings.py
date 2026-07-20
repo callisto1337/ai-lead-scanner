@@ -1,10 +1,13 @@
-from app.db.connection import get_connection
+from typing import cast
 
+from app.db.connection import get_connection
+from app.embeddings import Embedding
+from app.types import MessageWithoutEmbedding, MessageId
 
 EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 
 
-def save_embedding(message_id: str, embedding):
+def save_embedding(message_id: MessageId, embedding: Embedding) -> None:
     with get_connection() as conn:
         conn.execute(
             """
@@ -23,9 +26,11 @@ def save_embedding(message_id: str, embedding):
         conn.commit()
 
 
-def get_messages_without_embeddings(limit: int = 10):
+def get_messages_without_embeddings(
+    limit: int = 10,
+) -> list[MessageWithoutEmbedding]:
     with get_connection() as conn:
-        return conn.execute(
+        rows = conn.execute(
             """
             SELECT m.*
             FROM messages m
@@ -34,5 +39,7 @@ def get_messages_without_embeddings(limit: int = 10):
             WHERE e.id IS NULL
             LIMIT %s
             """,
-            (limit,)
+            (limit,),
         ).fetchall()
+
+    return cast(list[MessageWithoutEmbedding], rows)

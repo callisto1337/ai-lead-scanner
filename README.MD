@@ -21,12 +21,6 @@ docker compose exec bot python -m app.daily_summary
 docker compose up -d --build
 ```
 
-## Запуск тест-кейсов
-```shell
-Clear-Host; docker compose exec monitor python -m app.prompt_test
-```
-Не забудь сделать свежий билд!
-
 ## Установка хука на коммит
 ```shell
 poetry run pre-commit install

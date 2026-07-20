@@ -4,16 +4,17 @@ import traceback
 from app.db.lead_results import has_recent_user_lead
 from app.metrics import user_lead_cooldown_skipped
 from app.queue import message_queue
-from app.db.niches import get_active_niches
+from app.db.niches import get_active_niches_with_config
 from app.db.telegram_configs import get_telegram_config_by_company
 from app.bot.sender import send_to_leads
 from app.sender_utils import enrich_sender_info
 from app.lead_processor import process_message
 from app.settings import USER_LEAD_COOLDOWN_MINUTES
+from app.types import MessageQueueItem, ProcessMessageResult, LeadResult
 
 
-async def process_job(job: dict):
-    niches = get_active_niches()
+async def process_job(job: MessageQueueItem):
+    niches = get_active_niches_with_config()
 
     if not niches:
         print("⚠️ Нет активных ниш", flush=True)
@@ -51,16 +52,16 @@ async def process_job(job: dict):
             flush=True,
         )
 
-        result = await asyncio.to_thread(
+        result: ProcessMessageResult | None = await asyncio.to_thread(
             process_message,
             clean_text=job["clean_text"],
             message_id=job["message_id"],
             niche=niche,
-            sender_id=job.get("sender_id"),
-            sender_name=job.get("sender_name"),
-            sender_username=job.get("sender_username"),
-            reply_text=job.get("reply_text"),
-            reply_sender_id=job.get("reply_sender_id"),
+            sender_id=job["sender_id"],
+            sender_name=job["sender_name"],
+            sender_username=job["sender_username"],
+            reply_text=job["reply_text"],
+            reply_sender_id=job["reply_sender_id"],
         )
 
         if not result:
@@ -72,7 +73,7 @@ async def process_job(job: dict):
         result["source_link"] = job["source_link"]
         result["source_title"] = job["source_title"]
         result["text"] = job["clean_text"]
-        result["reply_text"] = job.get("reply_text")
+        result["reply_text"] = job["reply_text"]
 
         if result["lead"]:
             print("🔥 Найден лид", flush=True)
@@ -99,10 +100,31 @@ async def process_job(job: dict):
             )
             continue
 
+        lead_result: LeadResult = {
+            "lead_result_id": result["lead_result_id"],
+            "lead": result["lead"],
+            "niche_score": result["niche_score"],
+            "intent_score": result["intent_score"],
+            "description": result["description"],
+            "reply_author_relation": result["reply_author_relation"],
+
+            "source_link": job["source_link"],
+            "source_title": job["source_title"],
+            "text": job["clean_text"],
+            "reply_text": job["reply_text"],
+
+            "sender_name": job["sender_name"],
+            "sender_username": job["sender_username"],
+            "sender_id": job["sender_id"],
+
+            "user_id": result.get("user_id"),
+            "user_link": result.get("user_link", "Нет ссылки"),
+        }
+
         try:
             sent = await send_to_leads(
-                result["lead_result_id"],
-                result,
+                lead_result["lead_result_id"],
+                lead_result,
                 telegram_config,
             )
 

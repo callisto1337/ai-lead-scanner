@@ -1,11 +1,12 @@
 import argparse
 import asyncio
+import inspect
 import os
 from getpass import getpass
 from pathlib import Path
 
-from telethon import TelegramClient
-from telethon.errors import (
+from telethon import TelegramClient  # pyright: ignore[reportMissingTypeStubs]
+from telethon.errors import (  # pyright: ignore[reportMissingTypeStubs]
     PhoneCodeExpiredError,
     PhoneCodeInvalidError,
     PhoneNumberInvalidError,
@@ -78,14 +79,17 @@ async def authorize(reset: bool) -> None:
             return
 
         phone = input(
-            "Введите номер телефона в международном формате, например +79991234567: "
+            "Введите номер телефона в международном формате, "
+            "например +79991234567: "
         ).strip()
 
         sent_code = await client.send_code_request(phone)
 
-        code = input(
-            "Введите код из Telegram: "
-        ).strip().replace(" ", "")
+        code = (
+            input("Введите код из Telegram: ")
+            .strip()
+            .replace(" ", "")
+        )
 
         try:
             await client.sign_in(
@@ -99,9 +103,7 @@ async def authorize(reset: bool) -> None:
                 "Введите пароль двухэтапной аутентификации: "
             )
 
-            await client.sign_in(
-                password=password,
-            )
+            await client.sign_in(password=password)
 
         me = await client.get_me()
 
@@ -129,7 +131,10 @@ async def authorize(reset: bool) -> None:
         ) from error
 
     finally:
-        await client.disconnect()
+        disconnect_result = client.disconnect()
+
+        if inspect.isawaitable(disconnect_result):
+            await disconnect_result
 
 
 def main() -> None:
@@ -145,7 +150,7 @@ def main() -> None:
 
     asyncio.run(
         authorize(
-            reset=args.reset,
+            reset=bool(args.reset),
         )
     )
 

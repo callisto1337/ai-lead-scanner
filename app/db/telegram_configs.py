@@ -1,9 +1,14 @@
+from typing import cast
+
 from app.db.connection import get_connection
+from app.types import CompanyId, TgConfig
 
 
-def get_telegram_config_by_company(company_id: int) -> dict | None:
+def get_telegram_config_by_company(
+    company_id: CompanyId,
+) -> TgConfig | None:
     with get_connection() as conn:
-        return conn.execute(
+        row = conn.execute(
             """
             SELECT *
             FROM telegram_configs
@@ -14,10 +19,12 @@ def get_telegram_config_by_company(company_id: int) -> dict | None:
             (company_id,),
         ).fetchone()
 
+    return cast(TgConfig | None, row)
 
-def get_active_telegram_configs() -> list[dict]:
+
+def get_active_telegram_configs() -> list[TgConfig]:
     with get_connection() as conn:
-        return conn.execute(
+        rows = conn.execute(
             """
             SELECT
                 tc.*,
@@ -30,3 +37,5 @@ def get_active_telegram_configs() -> list[dict]:
             ORDER BY c.id
             """
         ).fetchall()
+
+    return cast(list[TgConfig], rows)

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from app.db.connection import get_connection
+from app.types import LeadResultId, NicheId, RatedBy
 
 
 def now_utc():
@@ -9,11 +10,11 @@ def now_utc():
 
 
 def update_lead_feedback(
-    lead_result_id: int,
+    lead_result_id: LeadResultId,
     feedback: str,
     human_lead: bool | None,
-    rated_by: dict,
-):
+    rated_by: RatedBy,
+) -> bool:
     rated_at = now_utc()
 
     with get_connection() as conn:
@@ -89,10 +90,14 @@ def update_lead_feedback(
     return True
 
 
-def count_final_feedback_since(since, niche_id: int | None = None):
-    params = [since]
+def count_final_feedback_since(
+    since: datetime,
+    niche_id: NicheId | None = None,
+) -> dict[str, int]:
+    params: list[object] = [since]
 
     where_niche = ""
+
     if niche_id is not None:
         where_niche = "AND niche_id = %s"
         params.append(niche_id)
@@ -100,16 +105,20 @@ def count_final_feedback_since(since, niche_id: int | None = None):
     with get_connection() as conn:
         rows = conn.execute(
             f"""
-            SELECT feedback, COUNT(*) AS total
+            SELECT
+                feedback,
+                COUNT(*) AS total
             FROM lead_results
             WHERE rated_at IS NOT NULL
               AND rated_at >= %s
+              AND feedback IS NOT NULL
               {where_niche}
             GROUP BY feedback
             """,
             params,
         ).fetchall()
 
-    return {row["feedback"]: row["total"] for row in rows}
-
-
+    return {
+        str(row["feedback"]): int(row["total"])
+        for row in rows
+    }

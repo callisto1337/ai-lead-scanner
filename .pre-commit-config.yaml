@@ -1,5 +1,15 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.3
+    rev: v0.14.0
     hooks:
       - id: ruff-check
+        args: [--fix]
+
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: poetry run pyright
+        language: system
+        pass_filenames: false
+        types: [python]

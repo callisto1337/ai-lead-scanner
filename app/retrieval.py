@@ -1,10 +1,28 @@
-from app.embeddings import create_embedding, embedding_to_pgvector
+from typing import TypedDict, cast
+
 from app.db.connection import get_connection
+from app.embeddings import create_embedding, embedding_to_pgvector
 from app.settings import MEMORY_MAX_DISTANCE
+from app.types import NicheId
 
 
-def find_similar_messages(text: str, niche_id: int, limit: int = 6):
-    embedding = embedding_to_pgvector(create_embedding(text))
+class SimilarMessage(TypedDict):
+    text: str
+    human_lead: bool
+    feedback: str
+    score: int | None
+    description: str | None
+    distance: float
+
+
+def find_similar_messages(
+    text: str,
+    niche_id: NicheId,
+    limit: int = 6,
+) -> list[SimilarMessage]:
+    embedding = embedding_to_pgvector(
+        create_embedding(text)
+    )
 
     with get_connection() as conn:
         rows = conn.execute(
@@ -37,23 +55,36 @@ def find_similar_messages(text: str, niche_id: int, limit: int = 6):
             ),
         ).fetchall()
 
-    return balance_examples(rows, limit)
+    typed_rows = cast(list[SimilarMessage], rows)
+
+    return balance_examples(
+        typed_rows,
+        limit,
+    )
 
 
-def balance_examples(rows, limit: int):
-    good = []
-    bad = []
+def balance_examples(
+    rows: list[SimilarMessage],
+    limit: int,
+) -> list[SimilarMessage]:
+    good: list[SimilarMessage] = []
+    bad: list[SimilarMessage] = []
 
     for row in rows:
         if row["human_lead"] is True:
             good.append(row)
-        elif row["human_lead"] is False:
+        else:
             bad.append(row)
 
-    result = []
+    result: list[SimilarMessage] = []
 
-    for pair in zip(good, bad):
-        result.extend(pair)
+    for good_row, bad_row in zip(good, bad):
+        result.extend(
+            (
+                good_row,
+                bad_row,
+            )
+        )
 
         if len(result) >= limit:
             return result[:limit]

@@ -1,16 +1,22 @@
 import asyncio
 from datetime import datetime
 from telegram import Bot
+from telegram.ext import ContextTypes
 
 from app.db.companies import get_company_by_id
-from app.db.daily_summary import format_period, get_last_24_hours_period, get_active_summary_targets, \
+from app.db.daily_summary import (
+    format_period,
+    get_last_24_hours_period,
+    get_active_summary_targets,
     get_daily_summary_stats
+)
 from app.db.telegram_configs import get_telegram_config_by_company
 from app.settings import BOT_TOKEN
+from app.types import CompanyId, DailySummaryStats
 
 
 async def send_company_summary(
-    company_id: int,
+    company_id: CompanyId,
     bot: Bot,
     chat_id: int | None = None,
 ):
@@ -80,7 +86,7 @@ async def send_company_summary(
 
 
 def build_daily_summary_message(
-    stats: list[dict],
+    stats: list[DailySummaryStats],
     started_at: datetime,
     ended_at: datetime,
 ) -> str:
@@ -123,24 +129,20 @@ async def send_message_with_retry(
 
     for attempt in range(1, 4):
         try:
-            kwargs = {
-                "chat_id": chat_id,
-                "text": text,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            }
-
-            if message_thread_id is not None:
-                kwargs["message_thread_id"] = message_thread_id
-
-            return await bot.send_message(**kwargs)
+            return await bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode="HTML",
+                disable_web_page_preview=True,
+                message_thread_id=message_thread_id,
+            )
 
         except Exception as error:
             last_error = error
 
             print(
                 (
-                    f"⚠️ Ошибка отправки сводки. "
+                    "⚠️ Ошибка отправки сводки. "
                     f"Попытка {attempt}/3: {error}"
                 ),
                 flush=True,
@@ -200,7 +202,9 @@ async def send_summary_messages() -> None:
             )
 
 
-async def job(context=None) -> None:
+async def job(
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
     try:
         await send_summary_messages()
     except Exception as error:

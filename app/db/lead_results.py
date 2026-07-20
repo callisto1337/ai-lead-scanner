@@ -1,10 +1,17 @@
+from typing import TypedDict, cast
+
 from app.db.connection import get_connection
+from app.types import NicheId, TgUserId
+
+
+class ExistsRow(TypedDict):
+    exists: bool
 
 
 def has_recent_user_lead(
     *,
-    user_id: int | None,
-    niche_id: int,
+    user_id: TgUserId | None,
+    niche_id: NicheId,
     cooldown_minutes: int,
 ) -> bool:
     if user_id is None or cooldown_minutes <= 0:
@@ -33,4 +40,9 @@ def has_recent_user_lead(
             ),
         ).fetchone()
 
-    return bool(row["exists"])
+    if row is None:
+        return False
+
+    typed_row = cast(ExistsRow, row)
+
+    return typed_row["exists"]

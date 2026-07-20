@@ -1,12 +1,13 @@
-from app.db.messages import get_context_chain
+from typing import Any
+
 from app.model_client import call_model
-from app.retrieval import find_similar_messages
 from app.settings import MIN_NICHE_SCORE, MIN_INTENT_SCORE
+from app.types import NicheWithConfig, IsLeadResult
 
 PROMPT_VERSION = "classifier_v8_strict_niche_reply_author"
 
 
-def format_list(items) -> str:
+def format_list(items: list[str]) -> str:
     if not items:
         return "Не указаны"
 
@@ -22,7 +23,7 @@ def format_list(items) -> str:
 
 def build_prompt(
     text: str,
-    niche: dict,
+    niche: NicheWithConfig,
     reply_text: str | None = None,
     reply_author_relation: str | None = None,
 ) -> str:
@@ -290,45 +291,45 @@ REPLY:
 """.strip()
 
 
-def build_memory_examples(text: str, niche_id: int):
-    rows = find_similar_messages(text, niche_id, 5)
+# def build_memory_examples(text: str, niche_id: NicheId):
+#     rows = find_similar_messages(text, niche_id, 5)
+#
+#     if not rows:
+#         return "Пока нет похожих примеров."
+#
+#     examples = []
+#
+#     for row in rows:
+#         ai_lead = "true" if row["ai_lead"] else "false"
+#         human_lead = "true" if row["human_lead"] else "false"
+#
+#         chain = get_context_chain(
+#             tg_chat_id=row.get("tg_chat_id"),
+#             tg_message_id=row.get("tg_message_id"),
+#             reply_to_id=row.get("reply_to_id"),
+#         )
+#
+#         if not chain:
+#             continue
+#
+#         example = []
+#
+#         if len(chain) > 1:
+#             example.append("Контекст диалога:")
+#
+#             for msg in chain[:-1]:
+#                 example.append(f"- {msg}")
+#
+#         example.append(f'Сообщение: "{chain[-1]}"')
+#         example.append(
+#             f"Результат: ai_lead={ai_lead}, human_lead={human_lead}"
+#         )
+#         examples.append("\n".join(example))
+#
+#     return "\n\n".join(examples)
 
-    if not rows:
-        return "Пока нет похожих примеров."
 
-    examples = []
-
-    for row in rows:
-        ai_lead = "true" if row["ai_lead"] else "false"
-        human_lead = "true" if row["human_lead"] else "false"
-
-        chain = get_context_chain(
-            tg_chat_id=row.get("tg_chat_id"),
-            tg_message_id=row.get("tg_message_id"),
-            reply_to_id=row.get("reply_to_id"),
-        )
-
-        if not chain:
-            continue
-
-        example = []
-
-        if len(chain) > 1:
-            example.append("Контекст диалога:")
-
-            for msg in chain[:-1]:
-                example.append(f"- {msg}")
-
-        example.append(f'Сообщение: "{chain[-1]}"')
-        example.append(
-            f"Результат: ai_lead={ai_lead}, human_lead={human_lead}"
-        )
-        examples.append("\n".join(example))
-
-    return "\n\n".join(examples)
-
-
-def normalize_ai_score(value) -> int:
+def normalize_ai_score(value: Any) -> int:
     try:
         score = int(value)
     except (TypeError, ValueError):
@@ -339,11 +340,11 @@ def normalize_ai_score(value) -> int:
 
 def is_lead(
     text: str,
-    niche: dict,
+    niche: NicheWithConfig,
     sender_id: int | None = None,
     reply_text: str | None = None,
     reply_sender_id: int | None = None,
-) -> dict | None:
+) -> IsLeadResult | None:
     if not reply_text:
         reply_author_relation = "reply отсутствует"
     elif sender_id is None or reply_sender_id is None:
@@ -381,13 +382,13 @@ def is_lead(
         and intent_score >= MIN_INTENT_SCORE
     )
 
-    return {
-        "lead": final_lead,
-        "niche_score": niche_score,
-        "intent_score": intent_score,
-        "description": data.get("description") or "",
-        "reply_author_relation": reply_author_relation,
-        "raw_response": data,
-        "prompt": prompt,
-        "prompt_version": PROMPT_VERSION,
-    }
+    return IsLeadResult(
+        lead=final_lead,
+        niche_score=niche_score,
+        intent_score=intent_score,
+        description=data.get("description") or "",
+        reply_author_relation=reply_author_relation,
+        raw_response=data,
+        prompt=prompt,
+        prompt_version=PROMPT_VERSION,
+    )
