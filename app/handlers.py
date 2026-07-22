@@ -92,6 +92,7 @@ async def handle_new_message(
         return
 
     text = event.message.text or ""
+    reply_to_msg_id = event.message.reply_to_msg_id or ""
     clean_text = normalize(text)
 
     if not clean_text:
@@ -105,7 +106,10 @@ async def handle_new_message(
 
     print("💬 Новое сообщение:", short_text, flush=True)
 
-    prefilter_result = prefilter_message(clean_text)
+    prefilter_result = prefilter_message(
+        clean_text,
+        has_reply=True if reply_to_msg_id else False,
+    )
 
     if not prefilter_result["ok"]:
         spam_detected.inc()

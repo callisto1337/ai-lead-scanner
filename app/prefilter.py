@@ -30,11 +30,11 @@ def is_duplicate(text: str) -> bool:
     return exists_seen_message(msg_hash)
 
 
-def prefilter_message(text: str) -> PrefilterResult:
-    if not text:
-        return reject("Пустое сообщение")
-
-    clean_text = text.strip()
+def prefilter_message(
+    text: str,
+    has_reply: bool = False,
+) -> PrefilterResult:
+    clean_text = text.strip() if text else None
 
     if not clean_text:
         return reject("Пустое сообщение")
@@ -45,8 +45,8 @@ def prefilter_message(text: str) -> PrefilterResult:
     if len(clean_text) > 1000:
         return reject("Сообщение слишком длинное")
 
-    if len(clean_text) < 5:
-        return reject("Сообщение слишком короткое")
+    if len(clean_text) < 20 and not has_reply:
+        return reject("Короткое сообщение без контекста")
 
     stopword = has_stopword(clean_text)
 
