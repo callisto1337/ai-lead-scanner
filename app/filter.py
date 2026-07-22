@@ -1,10 +1,12 @@
 from typing import Any
 
 from app.model_client import call_model
-from app.settings import MIN_NICHE_SCORE, MIN_INTENT_SCORE
-from app.types import NicheWithConfig, IsLeadResult
+from app.retrieval import find_similar_messages
+from app.settings import MIN_INTENT_SCORE, MIN_NICHE_SCORE
+from app.types import IsLeadResult, NicheId, NicheWithConfig
 
-PROMPT_VERSION = "classifier_v8_strict_niche_reply_author"
+
+PROMPT_VERSION = "classifier_v9_retrieval"
 
 
 def format_list(items: list[str]) -> str:
@@ -21,9 +23,59 @@ def format_list(items: list[str]) -> str:
     )
 
 
+def build_memory_examples(
+    text: str,
+    niche_id: NicheId,
+    limit: int = 6,
+) -> str:
+    try:
+        rows = find_similar_messages(
+            text=text,
+            niche_id=niche_id,
+            limit=limit,
+        )
+    except Exception as error:
+        print(
+            (
+                "⚠️ Не удалось получить похожие примеры: "
+                f"{type(error).__name__}: {error}"
+            ),
+            flush=True,
+        )
+        return "Похожих примеров с оценкой человека нет."
+
+    if not rows:
+        return "Похожих примеров с оценкой человека нет."
+
+    examples: list[str] = []
+
+    for index, row in enumerate(rows, start=1):
+        human_assessment = (
+            "true"
+            if row["human_lead"]
+            else "false"
+        )
+
+        example = "\n".join(
+            [
+                f"Пример {index}:",
+                f'Сообщение: "{row["text"]}"',
+                f"Оценка человека: {human_assessment}",
+                f"Расстояние: {row['distance']:.4f}",
+            ]
+        )
+
+        examples.append(example)
+
+    memory_block = "\n\n".join(examples)
+
+    return memory_block
+
+
 def build_prompt(
     text: str,
     niche: NicheWithConfig,
+    memory_examples: str,
     reply_text: str | None = None,
     reply_author_relation: str | None = None,
 ) -> str:
@@ -76,6 +128,23 @@ def build_prompt(
 
 Исключённые направления:
 {blacklist}
+
+
+ПРИМЕРЫ С ОЦЕНКОЙ ЧЕЛОВЕКА:
+
+{memory_examples}
+
+Правила использования примеров:
+
+- true означает, что оператор положительно оценил конкретное сообщение;
+- false означает, что оператор отрицательно оценил конкретное сообщение;
+- причины оценки отдельно не классифицировались и неизвестны;
+- не пытайся выводить из true обязательное наличие явной потребности,
+  готовности купить или конкретного типа запроса;
+- используй примеры только как ориентиры для похожих случаев;
+- не копируй оценку автоматически по совпадению отдельных слов;
+- не переноси факты или намерения из примеров в текущее сообщение;
+- niche_score и intent_score для текущего сообщения выставляй самостоятельно.
 
 
 NICHE_SCORE:
@@ -291,44 +360,6 @@ REPLY:
 """.strip()
 
 
-# def build_memory_examples(text: str, niche_id: NicheId):
-#     rows = find_similar_messages(text, niche_id, 5)
-#
-#     if not rows:
-#         return "Пока нет похожих примеров."
-#
-#     examples = []
-#
-#     for row in rows:
-#         ai_lead = "true" if row["ai_lead"] else "false"
-#         human_lead = "true" if row["human_lead"] else "false"
-#
-#         chain = get_context_chain(
-#             tg_chat_id=row.get("tg_chat_id"),
-#             tg_message_id=row.get("tg_message_id"),
-#             reply_to_id=row.get("reply_to_id"),
-#         )
-#
-#         if not chain:
-#             continue
-#
-#         example = []
-#
-#         if len(chain) > 1:
-#             example.append("Контекст диалога:")
-#
-#             for msg in chain[:-1]:
-#                 example.append(f"- {msg}")
-#
-#         example.append(f'Сообщение: "{chain[-1]}"')
-#         example.append(
-#             f"Результат: ai_lead={ai_lead}, human_lead={human_lead}"
-#         )
-#         examples.append("\n".join(example))
-#
-#     return "\n\n".join(examples)
-
-
 def normalize_ai_score(value: Any) -> int:
     try:
         score = int(value)
@@ -354,9 +385,15 @@ def is_lead(
     else:
         reply_author_relation = "другой автор"
 
+    memory_examples = build_memory_examples(
+        text=text,
+        niche_id=niche["id"],
+    )
+
     prompt = build_prompt(
         text=text,
         niche=niche,
+        memory_examples=memory_examples,
         reply_text=reply_text,
         reply_author_relation=reply_author_relation,
     )

@@ -10,7 +10,8 @@ class SimilarMessage(TypedDict):
     text: str
     human_lead: bool
     feedback: str
-    score: int | None
+    niche_score: int | None
+    intent_score: int | None
     description: str | None
     distance: float
 
@@ -31,7 +32,8 @@ def find_similar_messages(
                 m.text,
                 lr.human_lead,
                 lr.feedback,
-                lr.score,
+                lr.niche_score,
+                lr.intent_score,
                 lr.description,
                 e.embedding <=> %s::vector AS distance
             FROM message_embeddings e
@@ -79,12 +81,7 @@ def balance_examples(
     result: list[SimilarMessage] = []
 
     for good_row, bad_row in zip(good, bad):
-        result.extend(
-            (
-                good_row,
-                bad_row,
-            )
-        )
+        result.extend((good_row, bad_row))
 
         if len(result) >= limit:
             return result[:limit]
