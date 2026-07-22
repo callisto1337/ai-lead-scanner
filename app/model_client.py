@@ -1,8 +1,10 @@
 import logging
+from time import perf_counter
 from typing import Any, cast
 
 import requests
 
+from app.metrics import ai_request_duration_seconds
 from app.settings import AI_TIMEOUT_SECONDS, MODEL_API_URL, MODEL_NAME
 
 
@@ -21,6 +23,8 @@ def call_model(prompt: str) -> dict[str, Any] | None:
             "num_predict": 256,
         },
     }
+
+    started_at = perf_counter()
 
     try:
         response = requests.post(
@@ -74,6 +78,11 @@ def call_model(prompt: str) -> dict[str, Any] | None:
             flush=True,
         )
         return None
+
+    finally:
+        ai_request_duration_seconds.observe(
+            perf_counter() - started_at
+        )
 
     if not isinstance(raw_result, dict):
         logger.warning(

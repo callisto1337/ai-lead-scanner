@@ -37,16 +37,16 @@ def prefilter_message(
     clean_text = text.strip() if text else None
 
     if not clean_text:
-        return reject("Пустое сообщение")
+        return reject("empty")
 
     if is_duplicate(clean_text):
-        return reject("Спам / дубль сообщения")
+        return reject("duplicate")
 
     if len(clean_text) > 1000:
-        return reject("Сообщение слишком длинное")
+        return reject("too_long")
 
     if len(clean_text) < 20 and not has_reply:
-        return reject("Короткое сообщение без контекста")
+        return reject("too_short")
 
     stopword = has_stopword(clean_text)
 

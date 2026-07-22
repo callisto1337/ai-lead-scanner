@@ -1,5 +1,4 @@
-from prometheus_client import Counter, Histogram, start_http_server
-
+from prometheus_client import Counter, Histogram, start_http_server, Gauge
 
 message_received = Counter(
     "lead_scanner_messages_received_total",
@@ -32,7 +31,7 @@ feedback_total = Counter(
     ["feedback"],
 )
 
-AI_TIME = Histogram(
+ai_time = Histogram(
     "lead_scanner_ai_duration_seconds",
     "AI request duration in seconds",
 )
@@ -41,6 +40,28 @@ user_lead_cooldown_skipped = Counter(
     "lead_scanner_user_cooldown_skipped_total",
     "Messages skipped because the user already produced a lead during cooldown",
     ["company_id", "niche_id"],
+)
+
+ai_request_duration_seconds = Histogram(
+    "lead_scanner_ai_request_duration_seconds",
+    "Время ответа модели",
+    buckets=(1, 2, 3, 5, 8, 13, 20, 30, 45, 60, 90),
+)
+
+message_queue_size = Gauge(
+    "lead_scanner_message_queue_size",
+    "Текущее количество сообщений в очереди",
+)
+
+prefilter_rejected_total = Counter(
+    "lead_scanner_prefilter_rejected_total",
+    "Количество сообщений, отклонённых префильтром",
+    ["reason"],
+)
+
+prefilter_passed_total = Counter(
+    "lead_scanner_prefilter_passed_total",
+    "Количество сообщений, прошедших префильтр",
 )
 
 

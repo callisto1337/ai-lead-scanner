@@ -1,7 +1,7 @@
 from app.db.leads import save_lead_result
 from app.filter import is_lead
 from app.metrics import (
-    AI_TIME,
+    ai_time,
     ai_request,
     lead_detected,
     message_received,
@@ -27,7 +27,7 @@ def process_message(
     message_received.inc()
     ai_request.inc()
 
-    with AI_TIME.time():
+    with ai_time.time():
         ai_result = is_lead(
             text=clean_text,
             niche=niche,

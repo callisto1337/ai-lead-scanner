@@ -2,7 +2,7 @@ import asyncio
 import traceback
 
 from app.db.lead_results import has_recent_user_lead
-from app.metrics import user_lead_cooldown_skipped
+from app.metrics import user_lead_cooldown_skipped, message_queue_size
 from app.queue import message_queue
 from app.db.niches import get_active_niches_with_config
 from app.db.telegram_configs import get_telegram_config_by_company
@@ -145,6 +145,10 @@ async def message_worker():
     while True:
         job = await message_queue.get()
 
+        message_queue_size.set(
+            message_queue.qsize()
+        )
+
         try:
             print(
                 f"⚙️ Обработка job. queue_size={message_queue.qsize()}",
@@ -161,3 +165,7 @@ async def message_worker():
 
         finally:
             message_queue.task_done()
+
+            message_queue_size.set(
+                message_queue.qsize()
+            )
