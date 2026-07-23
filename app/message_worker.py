@@ -23,12 +23,16 @@ async def process_job(job: MessageQueueItem):
         return
 
     for niche in niches:
-        sender_id = job.get("sender_id")
+        sender_id = job["sender_id"]
 
-        if has_recent_user_lead(
-            user_id=sender_id,
-            niche_id=niche["id"],
-            cooldown_minutes=USER_LEAD_COOLDOWN_MINUTES,
+        if (
+            sender_id is not None
+            and has_recent_user_lead(
+                user_id=sender_id,
+                niche_id=niche["id"],
+                message_created_at=job["created_at"],
+                cooldown_minutes=USER_LEAD_COOLDOWN_MINUTES,
+            )
         ):
             user_lead_cooldown_skipped.labels(
                 company_id=str(niche["company_id"]),
@@ -49,7 +53,10 @@ async def process_job(job: MessageQueueItem):
             continue
 
         print(
-            f"🔎 Проверка ниши: {niche['company_name']} / {niche['name']}",
+            (
+                f"🔎 Проверка ниши: "
+                f"{niche['company_name']} / {niche['name']}"
+            ),
             flush=True,
         )
 
@@ -138,6 +145,8 @@ async def process_job(job: MessageQueueItem):
             print("❌ Ошибка при отправке лида:", flush=True)
 
             traceback.print_exc()
+
+
 async def message_worker():
     print("👷 Message worker started", flush=True)
 

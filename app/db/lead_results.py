@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import TypedDict, cast
 
 from app.db.connection import get_connection
@@ -10,11 +11,12 @@ class ExistsRow(TypedDict):
 
 def has_recent_user_lead(
     *,
-    user_id: TgUserId | None,
+    user_id: TgUserId,
     niche_id: NicheId,
+    message_created_at: datetime,
     cooldown_minutes: int,
 ) -> bool:
-    if user_id is None or cooldown_minutes <= 0:
+    if cooldown_minutes <= 0:
         return False
 
     with get_connection() as conn:
@@ -30,12 +32,17 @@ def has_recent_user_lead(
                 WHERE m.user_id = %s
                   AND lr.niche_id = %s
                   AND lr.ai_lead = TRUE
-                  AND lr.detected_at >= NOW() - (%s * INTERVAL '1 minute')
+                  AND m.created_at < %s
+                  AND m.created_at >= (
+                      %s - (%s * INTERVAL '1 minute')
+                  )
             ) AS exists
             """,
             (
                 user_id,
                 niche_id,
+                message_created_at,
+                message_created_at,
                 cooldown_minutes,
             ),
         ).fetchone()
