@@ -5,7 +5,7 @@ from telethon import events  # pyright: ignore[reportMissingTypeStubs]
 from app.db.blacklist_users import is_blacklisted
 from app.db.dedup import save_seen_message
 from app.db.messages import save_message
-from app.metrics import spam_detected, message_queue_size, prefilter_rejected_total
+from app.metrics import spam_detected, message_queue_size, prefilter_rejected_total, prefilter_passed_total
 from app.prefilter import prefilter_message
 from app.queue import message_queue
 from app.types import (
@@ -124,6 +124,8 @@ async def handle_new_message(
         )
         print("---------------", flush=True)
         return
+
+    prefilter_passed_total.inc()
 
     save_seen_message(clean_text)
 
