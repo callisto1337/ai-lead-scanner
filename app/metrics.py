@@ -64,6 +64,12 @@ prefilter_passed_total = Counter(
     "Количество сообщений, прошедших префильтр",
 )
 
+message_processing_delay_seconds = Histogram(
+    name="lead_scanner_message_processing_delay_seconds",
+    documentation="Задержка от публикации сообщения до начала обработки",
+    buckets=(1, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, 7200),
+)
+
 
 def start_metrics(port: int, service_name: str = "app") -> None:
     start_http_server(port)

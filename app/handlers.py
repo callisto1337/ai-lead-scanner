@@ -182,6 +182,7 @@ async def handle_new_message(
         "sender_name": sender_name,
         "sender_username": sender_username,
         "sender": sender_data,
+        "created_at": message_data["tg_created_at"],
     }
 
     try:

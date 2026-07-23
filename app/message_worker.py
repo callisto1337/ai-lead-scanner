@@ -1,8 +1,9 @@
 import asyncio
 import traceback
+from datetime import datetime, timezone
 
 from app.db.lead_results import has_recent_user_lead
-from app.metrics import user_lead_cooldown_skipped, message_queue_size
+from app.metrics import user_lead_cooldown_skipped, message_queue_size, message_processing_delay_seconds
 from app.queue import message_queue
 from app.db.niches import get_active_niches_with_config
 from app.db.telegram_configs import get_telegram_config_by_company
@@ -137,8 +138,6 @@ async def process_job(job: MessageQueueItem):
             print("❌ Ошибка при отправке лида:", flush=True)
 
             traceback.print_exc()
-
-
 async def message_worker():
     print("👷 Message worker started", flush=True)
 
@@ -153,6 +152,15 @@ async def message_worker():
             print(
                 f"⚙️ Обработка job. queue_size={message_queue.qsize()}",
                 flush=True,
+            )
+
+            delay_seconds = (
+                datetime.now(timezone.utc)
+                - job["created_at"]
+            ).total_seconds()
+
+            message_processing_delay_seconds.observe(
+                max(delay_seconds, 0)
             )
 
             await process_job(job)
