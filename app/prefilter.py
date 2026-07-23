@@ -51,7 +51,7 @@ def prefilter_message(
     stopword = has_stopword(clean_text)
 
     if stopword:
-        return reject(f"Сообщение отфильтровано стоп-словом: {stopword}")
+        return reject("stopword")
 
     return {
         "ok": True,
