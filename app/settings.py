@@ -42,3 +42,7 @@ BOT_ADMIN_IDS = {
     for value in os.getenv("BOT_ADMIN_IDS", "").split(",")
     if value.strip()
 }
+
+MESSAGE_WORKERS_COUNT = int(
+    os.getenv("MESSAGE_WORKERS_COUNT", "2")
+)

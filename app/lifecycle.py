@@ -10,6 +10,7 @@ from telethon.errors import FloodWaitError   # pyright: ignore[reportMissingType
 from app.embedding_worker import embedding_worker
 from app.message_worker import message_worker
 from app.metrics import start_metrics
+from app.settings import MESSAGE_WORKERS_COUNT
 from app.types import TelegramClientProtocol
 
 
@@ -17,8 +18,10 @@ def start_embedding_worker():
     asyncio.run(embedding_worker())
 
 
-def run_monitor(client: TelegramClientProtocol):
-    metrics_port = int(os.getenv("MONITOR_METRICS_PORT", "8002"))
+def run_monitor(client: TelegramClientProtocol) -> None:
+    metrics_port = int(
+        os.getenv("MONITOR_METRICS_PORT", "8002")
+    )
 
     start_metrics(metrics_port, "Monitor")
 
@@ -26,7 +29,6 @@ def run_monitor(client: TelegramClientProtocol):
         f"📊 Метрики запущены на: {metrics_port}/metrics",
         flush=True,
     )
-
     print("🚀 Запуск мониторинга...", flush=True)
 
     embedding_thread = threading.Thread(
@@ -38,8 +40,18 @@ def run_monitor(client: TelegramClientProtocol):
     try:
         client.start()
 
-        client.loop.create_task(message_worker())
+        for worker_id in range(
+            1,
+            MESSAGE_WORKERS_COUNT + 1,
+        ):
+            client.loop.create_task(
+                message_worker(worker_id)
+            )
 
+        print(
+            f"👷 Запущено message workers: {MESSAGE_WORKERS_COUNT}",
+            flush=True,
+        )
         print("🖥️ Мониторинг запущен", flush=True)
 
         client.run_until_disconnected()
@@ -48,7 +60,10 @@ def run_monitor(client: TelegramClientProtocol):
         handle_flood_wait(e)
 
     except KeyboardInterrupt:
-        print("🛑 Остановка мониторинга пользователем", flush=True)
+        print(
+            "🛑 Остановка мониторинга пользователем",
+            flush=True,
+        )
         sys.exit(0)
 
     except Exception as e:

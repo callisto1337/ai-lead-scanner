@@ -147,8 +147,13 @@ async def process_job(job: MessageQueueItem):
             traceback.print_exc()
 
 
-async def message_worker():
-    print("👷 Message worker started", flush=True)
+async def message_worker(
+    worker_id: int,
+) -> None:
+    print(
+        f"👷 Message worker #{worker_id} started",
+        flush=True,
+    )
 
     while True:
         job = await message_queue.get()
@@ -159,7 +164,10 @@ async def message_worker():
 
         try:
             print(
-                f"⚙️ Обработка job. queue_size={message_queue.qsize()}",
+                (
+                    f"⚙️ Worker #{worker_id}: обработка job. "
+                    f"queue_size={message_queue.qsize()}"
+                ),
                 flush=True,
             )
 
@@ -176,7 +184,10 @@ async def message_worker():
 
         except Exception as e:
             print(
-                f"❌ Ошибка в message_worker: {type(e).__name__}: {e}",
+                (
+                    f"❌ Ошибка в message_worker #{worker_id}: "
+                    f"{type(e).__name__}: {e}"
+                ),
                 flush=True,
             )
 
