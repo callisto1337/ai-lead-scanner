@@ -1,3 +1,9 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
 services:
   monitor:
     build: .
@@ -8,6 +14,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+    logging: *default-logging
 
     env_file:
       - .env
@@ -35,6 +43,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+    logging: *default-logging
 
     env_file:
       - .env
@@ -70,6 +80,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+    logging: *default-logging
 
     networks:
       - lead-scanner-net
@@ -137,47 +149,11 @@ services:
     networks:
       - lead-scanner-net
 
-  loki:
-    image: grafana/loki:latest
-    container_name: lead-scanner-loki
-    restart: always
-
-    ports:
-      - "3100:3100"
-
-    volumes:
-      - loki-data:/loki
-
-    networks:
-      - lead-scanner-net
-
-  promtail:
-    image: grafana/promtail:latest
-    container_name: lead-scanner-promtail
-    restart: always
-
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./promtail.yml:/etc/promtail/config.yml
-      - promtail-data:/tmp
-
-    command:
-      - -config.file=/etc/promtail/config.yml
-
-    depends_on:
-      - loki
-
-    networks:
-      - lead-scanner-net
-
 volumes:
   postgres-data:
   hf-cache:
   grafana-data:
   prometheus-data:
-  loki-data:
-  promtail-data:
 
 networks:
   lead-scanner-net:
