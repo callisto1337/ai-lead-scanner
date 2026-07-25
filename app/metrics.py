@@ -68,9 +68,9 @@ prefilter_passed_total = Counter(
 )
 
 message_processing_delay_seconds = Histogram(
-    name="lead_scanner_message_processing_delay_seconds",
-    documentation="Задержка от публикации сообщения до начала обработки",
-    buckets=(1, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, 7200),
+    name="lead_scanner_message_queue_wait_seconds",
+    documentation="Время ожидания сообщения в очереди",
+    buckets=(0.1, 0.5, 1, 2, 5, 10, 20, 30, 60, 120, 300),
 )
 
 

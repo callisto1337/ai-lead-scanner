@@ -173,7 +173,7 @@ async def message_worker(
 
             delay_seconds = (
                 datetime.now(timezone.utc)
-                - job["created_at"]
+                - job["enqueued_at"]
             ).total_seconds()
 
             message_processing_delay_seconds.observe(

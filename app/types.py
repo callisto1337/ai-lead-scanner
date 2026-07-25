@@ -329,6 +329,7 @@ class MessageQueueItem(TypedDict):
     sender_username: str | None
     sender: TgUser | None
     created_at: datetime
+    enqueued_at: datetime
 
 
 class ProcessMessageResult(TypedDict):

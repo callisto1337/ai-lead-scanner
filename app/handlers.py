@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 
 from telethon import events  # pyright: ignore[reportMissingTypeStubs]
 
@@ -183,6 +184,7 @@ async def handle_new_message(
         "sender_username": sender_username,
         "sender": sender_data,
         "created_at": message_data["tg_created_at"],
+        "enqueued_at": datetime.now(timezone.utc),
     }
 
     try:
