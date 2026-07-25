@@ -24,8 +24,13 @@ def process_message(
     reply_text: str | None = None,
     reply_sender_id: TgUserId | None = None,
 ) -> ProcessMessageResult | None:
-    message_received.inc()
-    ai_request.inc()
+    labels = {
+        "company_id": str(niche["company_id"]),
+        "niche_id": str(niche["id"]),
+    }
+
+    message_received.labels(**labels).inc()
+    ai_request.labels(**labels).inc()
 
     with ai_time.time():
         ai_result = is_lead(
@@ -54,7 +59,7 @@ def process_message(
         raise RuntimeError("Не удалось сохранить результат классификации")
 
     if ai_result["lead"]:
-        lead_detected.inc()
+        lead_detected.labels(**labels).inc()
 
     result: ProcessMessageResult = {
         "lead_result_id": lead_result["id"],

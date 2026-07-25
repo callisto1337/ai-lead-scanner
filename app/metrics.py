@@ -3,16 +3,19 @@ from prometheus_client import Counter, Histogram, start_http_server, Gauge
 message_received = Counter(
     "lead_scanner_messages_received_total",
     "Total received Telegram messages",
+    ["company_id", "niche_id"],
 )
 
 ai_request = Counter(
     "lead_scanner_ai_requests_total",
     "Total AI classification requests",
+    ["company_id", "niche_id"],
 )
 
 lead_detected = Counter(
     "lead_scanner_leads_detected_total",
     "Total AI detected leads",
+    ["company_id", "niche_id"],
 )
 
 spam_detected = Counter(
