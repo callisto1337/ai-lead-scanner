@@ -5,7 +5,6 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse
 from sqladmin import BaseView, expose
 
-from app.bootstrap import bootstrap_app
 from app.admin.models import (
     Company,
     Niche,
@@ -17,9 +16,6 @@ from app.admin.models import (
 )
 from app.db.niches import get_niches_for_select, add_niche_blacklist_bulk, add_niche_keywords_bulk
 from app.settings import DATABASE_URL
-
-
-bootstrap_app()
 
 app = FastAPI(title="Lead Scanner Admin")
 

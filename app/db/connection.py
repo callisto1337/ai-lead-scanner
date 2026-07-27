@@ -21,5 +21,9 @@ def get_connection() -> Generator[Connection[DictRow], None, None]:
 
     try:
         yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
     finally:
         connection.close()

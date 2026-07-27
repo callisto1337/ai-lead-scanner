@@ -11,10 +11,7 @@ from app.daily_summary import job as daily_summary_job
 from app.bot.handlers.report import report_company_callback, report_command
 from app.metrics import start_metrics
 from app.settings import BOT_TOKEN
-from app.bootstrap import bootstrap_app
 from app.bot.callbacks import handle_rating_callback
-
-bootstrap_app()
 
 def run_bot():
     METRICS_PORT = int(os.getenv("BOT_METRICS_PORT", "8003"))

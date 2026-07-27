@@ -14,6 +14,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
     logging: *default-logging
 
@@ -43,6 +45,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
     logging: *default-logging
 
@@ -80,6 +84,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
     logging: *default-logging
 
@@ -145,6 +151,34 @@ services:
 
     ports:
       - "9090:9090"
+
+    networks:
+      - lead-scanner-net
+
+  db-init:
+    build: .
+    container_name: lead-scanner-db-init
+    restart: "no"
+
+    command:
+      - python
+      - -c
+      - |
+        from app.db.schema import init_db
+        init_db()
+        print("Database initialized")
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lead_scanner}:${POSTGRES_PASSWORD:-lead_scanner_password}@postgres:5432/${POSTGRES_DB:-lead_scanner}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    logging: *default-logging
 
     networks:
       - lead-scanner-net

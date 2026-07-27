@@ -319,7 +319,7 @@ class MessageQueueItem(TypedDict):
     message_id: MessageId
     tg_chat_id: TgChatId
     tg_message_id: TgMessageId
-    reply_tg_message_id: TgMessageId | None
+    reply_tg_message_id: NotRequired[TgMessageId | None]
     reply_text: str | None
     reply_sender_id: TgUserId | None
     source_link: str
