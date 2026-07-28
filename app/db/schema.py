@@ -19,6 +19,7 @@ def init_db():
                 id            TEXT PRIMARY KEY,
 
                 reply_to_id   TEXT REFERENCES messages (id),
+                reply_sender_id BIGINT,
 
                 tg_message_id BIGINT      NOT NULL,
                 tg_chat_id    BIGINT      NOT NULL,
@@ -180,8 +181,10 @@ def init_db():
                 message_id        TEXT        NOT NULL REFERENCES messages (id) ON DELETE CASCADE,
                 niche_id          BIGINT      NOT NULL REFERENCES niches (id) ON DELETE CASCADE,
 
-                ai_lead           BOOLEAN     NOT NULL DEFAULT FALSE,
-                description       TEXT        NOT NULL DEFAULT '',
+                ai_lead           BOOLEAN NOT NULL DEFAULT FALSE,
+                niche_score       INTEGER NOT NULL DEFAULT 0,
+                intent_score      INTEGER NOT NULL DEFAULT 0,
+                description       TEXT    NOT NULL DEFAULT '',
 
                 raw_response      JSONB,
                 prompt            TEXT,

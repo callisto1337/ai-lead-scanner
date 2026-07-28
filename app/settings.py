@@ -44,5 +44,5 @@ BOT_ADMIN_IDS = {
 }
 
 MESSAGE_WORKERS_COUNT = int(
-    os.getenv("MESSAGE_WORKERS_COUNT", "2")
+    os.getenv("MESSAGE_WORKERS_COUNT", "4")
 )

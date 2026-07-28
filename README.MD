@@ -26,7 +26,12 @@ docker compose up -d --build
 poetry run pre-commit install
 ```
 
-## Проверить код
+## Проверить синтаксис
 ```shell
 poetry run pre-commit run --all-files
+```
+
+## Запуск регресс-тестов
+```shell
+docker compose exec monitor python -m app.scripts.prompt_marking_regression
 ```

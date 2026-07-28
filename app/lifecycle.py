@@ -1,11 +1,11 @@
+import asyncio
 import os
 import sys
+import threading
 import time
 import traceback
-import threading
-import asyncio
 
-from telethon.errors import FloodWaitError   # pyright: ignore[reportMissingTypeStubs]
+from telethon.errors import FloodWaitError  # pyright: ignore[reportMissingTypeStubs]
 
 from app.embedding_worker import embedding_worker
 from app.message_worker import message_worker
@@ -14,7 +14,7 @@ from app.settings import MESSAGE_WORKERS_COUNT
 from app.types import TelegramClientProtocol
 
 
-def start_embedding_worker():
+def start_embedding_worker() -> None:
     asyncio.run(embedding_worker())
 
 
@@ -56,8 +56,8 @@ def run_monitor(client: TelegramClientProtocol) -> None:
 
         client.run_until_disconnected()
 
-    except FloodWaitError as e:
-        handle_flood_wait(e)
+    except FloodWaitError as exc:
+        handle_flood_wait(exc)
 
     except KeyboardInterrupt:
         print(
@@ -66,20 +66,28 @@ def run_monitor(client: TelegramClientProtocol) -> None:
         )
         sys.exit(0)
 
-    except Exception as e:
-        handle_unexpected_error(e)
+    except Exception as exc:
+        handle_unexpected_error(exc)
 
 
-def handle_flood_wait(e: FloodWaitError):
-    wait_seconds = int(getattr(e, "seconds", 3600))
+def handle_flood_wait(exc: FloodWaitError) -> None:
+    wait_seconds = int(
+        getattr(exc, "seconds", 3600)
+    )
     wait_hours = round(wait_seconds / 3600, 2)
 
     print(
-        f"⏳ Telegram ограничил повторные попытки. FloodWait: {wait_seconds} секунд "
-        f"≈ {wait_hours} часов.",
+        (
+            "⏳ Telegram ограничил повторные попытки. "
+            f"FloodWait: {wait_seconds} секунд "
+            f"≈ {wait_hours} часов."
+        ),
         flush=True,
     )
-    print("🛑 Контейнер будет остановлен без немедленного перезапуска.", flush=True)
+    print(
+        "🛑 Контейнер будет остановлен без немедленного перезапуска.",
+        flush=True,
+    )
 
     sys.stderr.flush()
     time.sleep(min(wait_seconds, 3600))
@@ -87,16 +95,19 @@ def handle_flood_wait(e: FloodWaitError):
     sys.exit(0)
 
 
-def handle_unexpected_error(e: Exception):
-    print(f"❌ Ошибка: {e}", flush=True)
+def handle_unexpected_error(exc: Exception) -> None:
+    print(f"❌ Ошибка: {exc}", flush=True)
     sys.stderr.flush()
 
     traceback.print_exc()
 
     print(
-        "⏸️ Пауза 10 минут перед завершением, чтобы Docker не устроил быстрый цикл перезапусков.",
+        (
+            "⏸️ Пауза 10 минут перед завершением, "
+            "чтобы Docker не устроил быстрый цикл перезапусков."
+        ),
         flush=True,
     )
-    time.sleep(600)
 
+    time.sleep(600)
     sys.exit(1)
