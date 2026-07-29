@@ -11,11 +11,6 @@ TgSenderName = NewType("TgSenderName", str)
 TgSenderUsername = NewType("TgSenderUsername", str)
 MessageId = NewType("MessageId", str)
 
-# SenderId = NewType("SenderId", int)
-# SenderName = NewType("SenderName", str)
-# SenderUsername = NewType("SenderUsername", str)
-
-
 class TelegramSender(Protocol):
     id: int
     bot: bool
@@ -369,3 +364,18 @@ class NicheConfigRow(TypedDict):
 
 class PhraseRow(TypedDict):
     phrase: str
+
+
+class SimilarMessage(TypedDict):
+    text: str
+    reply_text: str | None
+    reply_author_relation: str
+
+    human_lead: bool
+    feedback: str
+
+    niche_score: int | None
+    intent_score: int | None
+    description: str | None
+
+    distance: float

@@ -52,7 +52,7 @@ async def handle_new_message(
     if sender is not None and sender.bot:
         return
 
-    sender_id: TgUserId | None = (
+    sender_id = (
         TgUserId(sender.id)
         if sender is not None
         else None
@@ -93,7 +93,6 @@ async def handle_new_message(
         return
 
     text = event.message.text or ""
-    reply_to_msg_id = event.message.reply_to_msg_id or ""
     clean_text = normalize(text)
 
     if not clean_text:
@@ -108,8 +107,7 @@ async def handle_new_message(
     print("💬 Новое сообщение:", short_text, flush=True)
 
     prefilter_result = prefilter_message(
-        clean_text,
-        has_reply=True if reply_to_msg_id else False,
+        clean_text
     )
 
     if not prefilter_result["ok"]:

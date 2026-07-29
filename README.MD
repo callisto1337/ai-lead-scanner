@@ -33,5 +33,5 @@ poetry run pre-commit run --all-files
 
 ## Запуск регресс-тестов
 ```shell
-docker compose exec monitor python -m app.scripts.prompt_marking_regression
+docker compose exec monitor python -m app.scripts.prompt_marking_regression_100  --niche-id 1
 ```

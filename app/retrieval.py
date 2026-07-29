@@ -1,19 +1,9 @@
-from typing import TypedDict, cast
+from typing import cast
 
 from app.db.connection import get_connection
 from app.embeddings import create_embedding, embedding_to_pgvector
 from app.settings import MEMORY_MAX_DISTANCE
-from app.types import NicheId
-
-
-class SimilarMessage(TypedDict):
-    text: str
-    human_lead: bool
-    feedback: str
-    niche_score: int | None
-    intent_score: int | None
-    description: str | None
-    distance: float
+from app.types import NicheId, SimilarMessage
 
 
 def find_similar_messages(
@@ -28,25 +18,45 @@ def find_similar_messages(
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT
-                m.text,
-                lr.human_lead,
-                lr.feedback,
-                lr.niche_score,
-                lr.intent_score,
-                lr.description,
-                e.embedding <=> %s::vector AS distance
+            SELECT m.text,
+                   parent.text AS reply_text,
+
+                   CASE
+                       WHEN m.reply_to_id IS NULL
+                           THEN 'reply отсутствует'
+                       WHEN m.user_id IS NULL
+                           OR m.reply_sender_id IS NULL
+                           THEN 'неизвестно'
+                       WHEN m.user_id = m.reply_sender_id
+                           THEN 'тот же автор'
+                       ELSE 'другой автор'
+                       END     AS reply_author_relation,
+
+                   lr.human_lead,
+                   lr.feedback,
+                   lr.niche_score,
+                   lr.intent_score,
+                   lr.description,
+
+                   e.embedding <=> %s::vector AS distance
+
             FROM message_embeddings e
-            JOIN messages m
-                ON m.id = e.message_id
-            JOIN lead_results lr
+                JOIN messages m
+            ON m.id = e.message_id
+                LEFT JOIN messages parent
+                ON parent.id = m.reply_to_id
+                JOIN lead_results lr
                 ON lr.message_id = m.id
+
             WHERE lr.niche_id = %s
-              AND lr.feedback IN ('good', 'bad')
+              AND lr.feedback IN ('good'
+                , 'bad')
               AND lr.human_lead IS NOT NULL
-              AND e.embedding <=> %s::vector < %s
+              AND e.embedding <=> %s::vector
+                < %s
+
             ORDER BY distance ASC
-            LIMIT %s
+                LIMIT %s
             """,
             (
                 embedding,
@@ -73,7 +83,7 @@ def balance_examples(
     bad: list[SimilarMessage] = []
 
     for row in rows:
-        if row["human_lead"] is True:
+        if row["human_lead"]:
             good.append(row)
         else:
             bad.append(row)

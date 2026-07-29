@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 from app.db.dedup import exists_seen_message
 from app.db.stopwords import get_active_stopwords
 from app.types import PrefilterResult
@@ -11,16 +13,36 @@ def reject(reason: str) -> PrefilterResult:
     }
 
 
-def has_stopword(text: str) -> str | None:
-    text_lower = normalize(text)
+def accept() -> PrefilterResult:
+    return {
+        "ok": True,
+        "reason": None,
+    }
 
-    for word in get_active_stopwords():
+
+def find_stopword(
+    text: str,
+    stopwords: Iterable[str],
+) -> str | None:
+    normalized_text = normalize(text)
+
+    for word in stopwords:
         normalized_word = normalize(word)
 
-        if normalized_word and normalized_word in text_lower:
+        if (
+            normalized_word
+            and normalized_word in normalized_text
+        ):
             return word
 
     return None
+
+
+def has_stopword(text: str) -> str | None:
+    return find_stopword(
+        text=text,
+        stopwords=get_active_stopwords(),
+    )
 
 
 def is_duplicate(text: str) -> bool:
@@ -31,8 +53,7 @@ def is_duplicate(text: str) -> bool:
 
 
 def prefilter_message(
-    text: str,
-    has_reply: bool = False,
+    text: str
 ) -> PrefilterResult:
     clean_text = text.strip() if text else None
 
@@ -45,15 +66,45 @@ def prefilter_message(
     if len(clean_text) > 1000:
         return reject("too_long")
 
-    if len(clean_text) < 20 and not has_reply:
+    if len(clean_text) < 30:
         return reject("too_short")
 
     stopword = has_stopword(clean_text)
 
     if stopword:
-        return reject("stopword")
+        return reject(
+            f"global_stopword:{stopword}"
+        )
 
-    return {
-        "ok": True,
-        "reason": None,
-    }
+    return accept()
+
+
+def prefilter_niche_message(
+    text: str,
+    niche_stopwords: Iterable[str],
+    reply_text: str | None = None,
+) -> PrefilterResult:
+    stopwords = tuple(niche_stopwords)
+
+    current_stopword = find_stopword(
+        text=text,
+        stopwords=stopwords,
+    )
+
+    if current_stopword:
+        return reject(
+            f"niche_stopword:{current_stopword}"
+        )
+
+    if reply_text:
+        reply_stopword = find_stopword(
+            text=reply_text,
+            stopwords=stopwords,
+        )
+
+        if reply_stopword:
+            return reject(
+                f"niche_reply_stopword:{reply_stopword}"
+            )
+
+    return accept()

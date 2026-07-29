@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from app.db.lead_results import has_recent_user_lead
 from app.metrics import user_lead_cooldown_skipped, message_queue_size, message_processing_delay_seconds
+from app.prefilter import prefilter_niche_message
 from app.queue import message_queue
 from app.db.niches import get_active_niches_with_config
 from app.db.telegram_configs import get_telegram_config_by_company
@@ -23,17 +24,42 @@ async def process_job(job: MessageQueueItem):
         return
 
     for niche in niches:
-        sender_id = job["sender_id"]
+        print(
+            (
+                f"🔎 Проверка ниши: "
+                f"{niche['company_name']} / {niche['name']}"
+            ),
+            flush=True,
+        )
 
-        if (
-            sender_id is not None
-            and has_recent_user_lead(
+        niche_prefilter_result = prefilter_niche_message(
+            text=job["clean_text"],
+            reply_text=job["reply_text"],
+            niche_stopwords=niche.get("blacklist") or [],
+        )
+
+        if not niche_prefilter_result["ok"]:
+            print(
+                (
+                    "⛔ Пропуск ниши по blacklist: "
+                    f"company_id={niche['company_id']}, "
+                    f"niche_id={niche['id']}, "
+                    f"reason={niche_prefilter_result['reason']}"
+                ),
+                flush=True,
+            )
+            print("---------------", flush=True)
+            continue
+
+        sender_id = job["sender_id"]
+        has_recent_lead = has_recent_user_lead(
                 user_id=sender_id,
                 niche_id=niche["id"],
                 message_created_at=job["created_at"],
                 cooldown_minutes=USER_LEAD_COOLDOWN_MINUTES,
             )
-        ):
+
+        if sender_id is not None and has_recent_lead:
             user_lead_cooldown_skipped.labels(
                 company_id=str(niche["company_id"]),
                 niche_id=str(niche["id"]),
@@ -51,14 +77,6 @@ async def process_job(job: MessageQueueItem):
             )
 
             continue
-
-        print(
-            (
-                f"🔎 Проверка ниши: "
-                f"{niche['company_name']} / {niche['name']}"
-            ),
-            flush=True,
-        )
 
         result: ProcessMessageResult | None = await asyncio.to_thread(
             process_message,

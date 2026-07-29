@@ -11,7 +11,7 @@ class ExistsRow(TypedDict):
 
 def has_recent_user_lead(
     *,
-    user_id: TgUserId,
+    user_id: TgUserId | None,
     niche_id: NicheId,
     message_created_at: datetime,
     cooldown_minutes: int,
