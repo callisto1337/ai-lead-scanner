@@ -39,11 +39,25 @@ async def send_company_summary(
         ended_at=ended_at,
     )
 
+    if not stats:
+        print(
+            (
+                "ℹ️ Сводка пропущена: "
+                f"company_id={company_id}, "
+                "нет активных ниш"
+            ),
+            flush=True,
+        )
+        return None
+
     text = build_daily_summary_message(
         stats=stats,
         started_at=started_at,
         ended_at=ended_at,
     )
+
+    if text is None:
+        return None
 
     target_chat_id = (
         chat_id
@@ -89,15 +103,14 @@ def build_daily_summary_message(
     stats: list[DailySummaryStats],
     started_at: datetime,
     ended_at: datetime,
-) -> str:
+) -> str | None:
+    if not stats:
+        return None
+
     blocks = [
         "📊 Сводка за последние 24 часа",
         f"🕒 {format_period(started_at, ended_at)}",
     ]
-
-    if not stats:
-        blocks.append("\nНет активных ниш.")
-        return "\n".join(blocks)
 
     for item in stats:
         blocks.append(
@@ -167,11 +180,26 @@ async def send_summary_messages() -> None:
                 ended_at=ended_at,
             )
 
+            if not stats:
+                print(
+                    (
+                        "ℹ️ Ежедневная сводка пропущена: "
+                        f"company_id={target['company_id']}, "
+                        f"company={target['company_name']}, "
+                        "нет активных ниш"
+                    ),
+                    flush=True,
+                )
+                continue
+
             text = build_daily_summary_message(
                 stats=stats,
                 started_at=started_at,
                 ended_at=ended_at,
             )
+
+            if text is None:
+                continue
 
             message = await send_message_with_retry(
                 bot=bot,
