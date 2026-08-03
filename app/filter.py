@@ -435,6 +435,29 @@ def normalize_ai_score(value: Any) -> int:
     return max(0, min(score, 100))
 
 
+def build_langfuse_context(niche: NicheWithConfig) -> tuple[dict[str, str], list[str]]:
+    company_name = str(niche.get("company_name") or "Не указана").strip() or "Не указана"
+    niche_name = str(niche.get("name") or "Не указана").strip() or "Не указана"
+    niche_slug = str(niche.get("slug") or "").strip()
+
+    metadata: dict[str, str] = {
+        "company_id": str(niche["company_id"]),
+        "company_name": company_name,
+        "niche_id": str(niche["id"]),
+        "niche_name": niche_name,
+        "promptversion": PROMPT_VERSION,
+    }
+
+    if niche_slug:
+        metadata["niche_slug"] = niche_slug
+
+    niche_label = f"{company_name} / {niche_name}"
+    tag_value = f"niche:{niche_label}"[:200]
+    tags = [tag_value]
+
+    return metadata, tags
+
+
 def is_lead(
     text: str,
     niche: NicheWithConfig,
@@ -456,6 +479,8 @@ def is_lead(
         niche_id=niche["id"],
     )
 
+    langfuse_metadata, langfuse_tags = build_langfuse_context(niche)
+
     prompt = build_prompt(
         text=text,
         niche=niche,
@@ -464,7 +489,11 @@ def is_lead(
         reply_author_relation=reply_author_relation,
     )
 
-    data = call_model(prompt)
+    data = call_model(
+        prompt,
+        metadata=langfuse_metadata,
+        tags=langfuse_tags,
+    )
 
     if not data:
         print("❌ is_lead: call_model returned None", flush=True)
