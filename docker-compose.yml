@@ -24,6 +24,7 @@ services:
 
     environment:
       MONITOR_METRICS_PORT: 8002
+      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006/v1/traces
 
     volumes:
       - ./config:/app/config
@@ -151,6 +152,30 @@ services:
 
     ports:
       - "9090:9090"
+
+    networks:
+      - lead-scanner-net
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: lead-scanner-phoenix
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+
+    environment:
+      PHOENIX_SQL_DATABASE_URL: postgresql://${POSTGRES_USER:-lead_scanner}:${POSTGRES_PASSWORD:-lead_scanner_password}@postgres:5432/${POSTGRES_DB:-lead_scanner}
+      PHOENIX_SQL_DATABASE_SCHEMA: phoenix
+
+    ports:
+      - "6006:6006"
+      - "4317:4317"
+
+    logging: *default-logging
 
     networks:
       - lead-scanner-net

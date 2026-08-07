@@ -12,6 +12,8 @@ def init_db():
             """
         )
 
+        conn.execute("CREATE SCHEMA IF NOT EXISTS phoenix;")
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS messages

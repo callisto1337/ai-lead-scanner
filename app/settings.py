@@ -28,14 +28,12 @@ MODEL_API_URL = os.getenv("MODEL_API_URL", "http://lead-scanner-model-api:8000")
 MODEL_NAME = os.getenv("MODEL_NAME", "qwen3:14b")
 AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "90"))
 
-LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
-LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
-LANGFUSE_BASE_URL = os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com")
-LANGFUSE_TRACING_ENVIRONMENT = os.getenv(
-    "LANGFUSE_TRACING_ENVIRONMENT",
-    "dev",
+PHOENIX_COLLECTOR_ENDPOINT = os.getenv(
+    "PHOENIX_COLLECTOR_ENDPOINT",
+    "http://phoenix:6006/v1/traces",
 )
-LANGFUSE_ENABLED = bool(LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY)
+PHOENIX_PROJECT_NAME = os.getenv("PHOENIX_PROJECT_NAME", "lead-scanner")
+PHOENIX_ENABLED = bool(os.getenv("PHOENIX_ENABLED", True))
 
 MIN_NICHE_SCORE = int(os.getenv("MIN_NICHE_SCORE", "75"))
 MIN_INTENT_SCORE = int(os.getenv("MIN_INTENT_SCORE", "75"))

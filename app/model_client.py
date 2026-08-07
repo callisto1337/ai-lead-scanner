@@ -1,17 +1,19 @@
+import json
 import logging
 from contextlib import nullcontext
 from time import perf_counter
 from typing import Any, cast, ContextManager, Callable, Optional
 
 try:
-    from langfuse import propagate_attributes  # type: ignore[reportMissingImports]
+    from phoenix.otel import using_metadata, using_tags  # pyright: ignore[reportMissingImports]
 except ImportError:
-    propagate_attributes: Optional[Callable[..., ContextManager[Any]]] = None
+    using_metadata: Optional[Callable[..., ContextManager[Any]]] = None
+    using_tags: Optional[Callable[..., ContextManager[Any]]] = None
 
 import requests
 
 from app.metrics import ai_request_duration_seconds
-from app.langfuse_client import get_langfuse_client
+from app.tracing_client import get_tracer
 from app.settings import AI_TIMEOUT_SECONDS, MODEL_API_URL, MODEL_NAME
 
 
@@ -23,7 +25,7 @@ def call_model(
     metadata: dict[str, str] | None = None,
     tags: list[str] | None = None,
 ) -> dict[str, Any] | None:
-    langfuse = get_langfuse_client()
+    tracer = get_tracer()
     payload: dict[str, Any] = {
         "prompt": prompt,
         "model": MODEL_NAME,
@@ -38,173 +40,186 @@ def call_model(
 
     started_at = perf_counter()
 
-    observation_context = (
-        langfuse.start_as_current_observation(
-            as_type="generation",
-            name="model-classification",
-            model=MODEL_NAME,
-            input=prompt,
+    span_context = (
+        tracer.start_as_current_span(
+            "model-classification",
+            openinference_span_kind="llm",
         )
-        if langfuse is not None
+        if tracer is not None
         else nullcontext()
     )
 
-    # Явное указание типа для attributes_context
-    if (
-        langfuse is not None
-        and propagate_attributes is not None
-        and (metadata or tags)
-    ):
-        attributes_context: ContextManager[Any] = propagate_attributes(
-            metadata=metadata or {},
-            tags=tags or [],
-        )
-    else:
-        attributes_context = nullcontext()
+    metadata_context: ContextManager[Any] = (
+        using_metadata(metadata)
+        if tracer is not None and using_metadata is not None and metadata
+        else nullcontext()
+    )
 
-    with attributes_context:
-        with observation_context as generation:
-            try:
-                response = requests.post(
-                    f"{MODEL_API_URL}/generate",
-                    json=payload,
-                    timeout=AI_TIMEOUT_SECONDS,
-                )
+    tags_context: ContextManager[Any] = (
+        using_tags(tags)
+        if tracer is not None and using_tags is not None and tags
+        else nullcontext()
+    )
 
-                if not response.ok:
-                    logger.error(
-                        "Model API error: status=%s body=%s",
-                        response.status_code,
-                        response.text,
+    with metadata_context:
+        with tags_context:
+            with span_context as span:
+                if span is not None:
+                    span.set_input(prompt)
+                    span.set_attribute("llm.model_name", MODEL_NAME)
+
+                try:
+                    response = requests.post(
+                        f"{MODEL_API_URL}/generate",
+                        json=payload,
+                        timeout=AI_TIMEOUT_SECONDS,
                     )
+
+                    if not response.ok:
+                        logger.error(
+                            "Model API error: status=%s body=%s",
+                            response.status_code,
+                            response.text,
+                        )
+
+                        print(
+                            f"❌ Model API error: status={response.status_code}",
+                            flush=True,
+                        )
+                        print(response.text, flush=True)
+
+                        if span is not None:
+                            span.set_output(
+                                json.dumps(
+                                    {
+                                        "status": response.status_code,
+                                        "body": response.text,
+                                    },
+                                    ensure_ascii=False,
+                                )
+                            )
+
+                        return None
+
+                    raw_result: object = response.json()
+
+                except requests.Timeout:
+                    logger.exception("Model API timeout")
+                    print("❌ Model API timeout", flush=True)
+
+                    if span is not None:
+                        span.set_output(json.dumps({"error": "timeout"}))
+
+                    return None
+
+                except requests.RequestException as error:
+                    logger.exception("Model API request failed")
 
                     print(
-                        f"❌ Model API error: status={response.status_code}",
+                        (
+                            "❌ Model API request failed: "
+                            f"{type(error).__name__}: {error}"
+                        ),
                         flush=True,
                     )
-                    print(response.text, flush=True)
 
-                    if generation is not None:
-                        generation.update(
-                            output={
-                                "status": response.status_code,
-                                "body": response.text,
-                            },
+                    if span is not None:
+                        span.set_output(
+                            json.dumps(
+                                {
+                                    "error": type(error).__name__,
+                                    "message": str(error),
+                                },
+                                ensure_ascii=False,
+                            )
                         )
 
                     return None
 
-                raw_result: object = response.json()
+                except ValueError as error:
+                    logger.exception("Model API returned non-JSON response")
 
-            except requests.Timeout:
-                logger.exception("Model API timeout")
-                print("❌ Model API timeout", flush=True)
-
-                if generation is not None:
-                    generation.update(output={"error": "timeout"})
-
-                return None
-
-            except requests.RequestException as error:
-                logger.exception("Model API request failed")
-
-                print(
-                    (
-                        "❌ Model API request failed: "
-                        f"{type(error).__name__}: {error}"
-                    ),
-                    flush=True,
-                )
-
-                if generation is not None:
-                    generation.update(
-                        output={
-                            "error": type(error).__name__,
-                            "message": str(error),
-                        },
+                    print(
+                        (
+                            "❌ Model API returned non-JSON response: "
+                            f"{type(error).__name__}: {error}"
+                        ),
+                        flush=True,
                     )
 
-                return None
+                    if span is not None:
+                        span.set_output(
+                            json.dumps(
+                                {
+                                    "error": type(error).__name__,
+                                    "message": str(error),
+                                },
+                                ensure_ascii=False,
+                            )
+                        )
 
-            except ValueError as error:
-                logger.exception("Model API returned non-JSON response")
+                    return None
 
-                print(
-                    (
-                        "❌ Model API returned non-JSON response: "
-                        f"{type(error).__name__}: {error}"
-                    ),
-                    flush=True,
-                )
-
-                if generation is not None:
-                    generation.update(
-                        output={
-                            "error": type(error).__name__,
-                            "message": str(error),
-                        },
+                finally:
+                    ai_request_duration_seconds.observe(
+                        perf_counter() - started_at
                     )
 
-                return None
-
-            finally:
-                ai_request_duration_seconds.observe(
-                    perf_counter() - started_at
-                )
-
-            if not isinstance(raw_result, dict):
-                logger.warning(
-                    "Model API response is not dict: %s",
-                    raw_result,
-                )
-
-                if generation is not None:
-                    generation.update(output={"error": "response_is_not_dict"})
-
-                return None
-
-            result = cast(dict[str, Any], raw_result)
-
-            if not result.get("ok"):
-                error = result.get("error")
-                raw = result.get("raw")
-
-                logger.warning(
-                    "Model returned invalid JSON: error=%s raw=%s",
-                    error,
-                    raw,
-                )
-
-                print("❌ Model returned invalid JSON", flush=True)
-                print(f"error: {error}", flush=True)
-                print("raw:", flush=True)
-                print(raw, flush=True)
-
-                if generation is not None:
-                    generation.update(
-                        output={
-                            "error": error,
-                            "raw": raw,
-                        },
+                if not isinstance(raw_result, dict):
+                    logger.warning(
+                        "Model API response is not dict: %s",
+                        raw_result,
                     )
 
-                return None
+                    if span is not None:
+                        span.set_output(
+                            json.dumps({"error": "response_is_not_dict"})
+                        )
 
-            data = result.get("data")
+                    return None
 
-            if not isinstance(data, dict):
-                logger.warning("Model API data is not dict: %s", result)
+                result = cast(dict[str, Any], raw_result)
 
-                print("❌ Model API data is not dict", flush=True)
-                print("result:", flush=True)
-                print(result, flush=True)
+                if not result.get("ok"):
+                    error = result.get("error")
+                    raw = result.get("raw")
 
-                if generation is not None:
-                    generation.update(output={"error": "data_is_not_dict"})
+                    logger.warning(
+                        "Model returned invalid JSON: error=%s raw=%s",
+                        error,
+                        raw,
+                    )
 
-                return None
+                    print("❌ Model returned invalid JSON", flush=True)
+                    print(f"error: {error}", flush=True)
+                    print("raw:", flush=True)
+                    print(raw, flush=True)
 
-            if generation is not None:
-                generation.update(output=data)
+                    if span is not None:
+                        span.set_output(
+                            json.dumps(
+                                {"error": error, "raw": raw},
+                                ensure_ascii=False,
+                            )
+                        )
 
-            return cast(dict[str, Any], data)
+                    return None
+
+                data = result.get("data")
+
+                if not isinstance(data, dict):
+                    logger.warning("Model API data is not dict: %s", result)
+
+                    print("❌ Model API data is not dict", flush=True)
+                    print("result:", flush=True)
+                    print(result, flush=True)
+
+                    if span is not None:
+                        span.set_output(json.dumps({"error": "data_is_not_dict"}))
+
+                    return None
+
+                if span is not None:
+                    span.set_output(json.dumps(data, ensure_ascii=False))
+
+                return cast(dict[str, Any], data)

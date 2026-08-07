@@ -435,7 +435,7 @@ def normalize_ai_score(value: Any) -> int:
     return max(0, min(score, 100))
 
 
-def build_langfuse_context(niche: NicheWithConfig) -> tuple[dict[str, str], list[str]]:
+def build_tracing_context(niche: NicheWithConfig) -> tuple[dict[str, str], list[str]]:
     company_name = str(niche.get("company_name") or "Не указана").strip() or "Не указана"
     niche_name = str(niche.get("name") or "Не указана").strip() or "Не указана"
     niche_slug = str(niche.get("slug") or "").strip()
@@ -479,7 +479,7 @@ def is_lead(
         niche_id=niche["id"],
     )
 
-    langfuse_metadata, langfuse_tags = build_langfuse_context(niche)
+    tracing_metadata, tracing_tags = build_tracing_context(niche)
 
     prompt = build_prompt(
         text=text,
@@ -491,8 +491,8 @@ def is_lead(
 
     data = call_model(
         prompt,
-        metadata=langfuse_metadata,
-        tags=langfuse_tags,
+        metadata=tracing_metadata,
+        tags=tracing_tags,
     )
 
     if not data:
