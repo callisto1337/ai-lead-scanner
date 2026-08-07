@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>AI Lead Scanner — сервисы</title>
+<style>
+  :root {
+    --paper: #d7dad5;
+    --ink: #14161a;
+    --muted: #6f7670;
+    --accent: #1f4fd8;
+    --rule: #b9bdb7;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 56px 24px 80px;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 6vw, 44px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .host {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  .services { margin-top: 8px; }
+
+  .service {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    padding: 22px 20px 22px 4px;
+    border-bottom: 1px solid var(--rule);
+    color: inherit;
+    text-decoration: none;
+    transition: padding-left .18s ease, background-color .18s ease;
+  }
+
+  .service:hover,
+  .service:focus-visible {
+    background: rgba(31, 79, 216, .06);
+    padding-left: 20px;
+  }
+
+  .service:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  /* Порт — то, что реально опознаёшь с одного взгляда */
+  .port {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: clamp(40px, 10vw, 68px);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: var(--ink);
+    opacity: .09;
+    pointer-events: none;
+    transition: opacity .18s ease, color .18s ease;
+  }
+
+  .service:hover .port,
+  .service:focus-visible .port {
+    opacity: .22;
+    color: var(--accent);
+  }
+
+  .name {
+    position: relative;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .service:hover .name { color: var(--accent); }
+
+  .note {
+    position: relative;
+    margin-top: 4px;
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 60%;
+  }
+
+  .locked {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 7px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    vertical-align: 3px;
+  }
+
+  footer {
+    margin-top: 40px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  footer code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: rgba(20, 22, 26, .06);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  @media (max-width: 560px) {
+    .note { max-width: 100%; }
+    .port { font-size: 44px; opacity: .07; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>AI&nbsp;Lead&nbsp;Scanner</h1>
+    <div class="host" id="host">прод</div>
+  </header>
+
+  <nav class="services">
+
+    <a class="service" href="#" data-port="8001" data-path="/admin/" target="_blank">
+      <span class="port">8001</span>
+      <div class="name">Админка</div>
+      <div class="note">Компании, ниши, ключевые фразы, blacklist, настройки Telegram</div>
+    </a>
+
+    <a class="service" href="#" data-port="3000" target="_blank">
+      <span class="port">3000</span>
+      <div class="name">Grafana</div>
+      <div class="note">Метрики монитора и бота</div>
+    </a>
+
+    <a class="service" href="#" data-port="6006" target="_blank">
+      <span class="port">6006</span>
+      <div class="name">Phoenix</div>
+      <div class="note">Трейсы LLM-вызовов, разбор разметки лидов</div>
+    </a>
+
+    <a class="service" href="#" data-port="9090" target="_blank">
+      <span class="port">9090</span>
+      <div class="name">Prometheus</div>
+      <div class="note">Сырые метрики и состояние таргетов</div>
+    </a>
+
+    <a class="service" href="#" data-port="11434" target="_blank">
+      <span class="port">11434</span>
+      <div class="name">Ollama</div>
+      <div class="note">Проверка состояния модели</div>
+    </a>
+
+  </nav>
+
+</div>
+
+<script>
+  // Ссылки строятся от текущего хоста — файл не надо править при смене IP или домена.
+  var host = location.hostname;
+  document.getElementById('host').textContent = host;
+  document.querySelectorAll('.service').forEach(function (el) {
+    el.href = location.protocol + '//' + host + ':' + el.dataset.port + (el.dataset.path || '/');
+  });
+</script>
+</body>
+</html>

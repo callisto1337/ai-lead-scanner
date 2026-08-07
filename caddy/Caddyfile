@@ -1,0 +1,43 @@
+{
+	# Домена пока нет — работаем по IP, без автоматических сертификатов.
+	# Когда появится домен, этот блок можно убрать и прописать имена вместо портов.
+	auto_https off
+}
+
+# Логин/пароль. Хеш получить командой:
+#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'ваш-пароль'
+(auth) {
+	basic_auth {
+		{$CADDY_USER} {$CADDY_PASSWORD_HASH}
+	}
+}
+
+# Страница со ссылками
+:80 {
+	import auth
+	root * /srv
+	file_server
+}
+
+# Phoenix
+:6006 {
+	import auth
+	reverse_proxy phoenix:6006
+}
+
+# Админка
+:8001 {
+	import auth
+	reverse_proxy admin:8001
+}
+
+# Prometheus
+:9090 {
+	import auth
+	reverse_proxy prometheus:9090
+}
+
+# Grafana — своя авторизация, basic auth сверху не нужен
+:3000 {
+	reverse_proxy grafana:3000
+}

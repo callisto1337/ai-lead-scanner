@@ -79,9 +79,6 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lead_scanner}:${POSTGRES_PASSWORD:-lead_scanner_password}@postgres:5432/${POSTGRES_DB:-lead_scanner}
 
-    ports:
-      - "8001:8001"
-
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,9 +123,6 @@ services:
     container_name: lead-scanner-grafana
     restart: always
 
-    ports:
-      - "3000:3000"
-
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
@@ -150,9 +144,6 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
 
-    ports:
-      - "9090:9090"
-
     networks:
       - lead-scanner-net
 
@@ -171,9 +162,30 @@ services:
       PHOENIX_SQL_DATABASE_URL: postgresql://${POSTGRES_USER:-lead_scanner}:${POSTGRES_PASSWORD:-lead_scanner_password}@postgres:5432/${POSTGRES_DB:-lead_scanner}
       PHOENIX_SQL_DATABASE_SCHEMA: phoenix
 
+    logging: *default-logging
+
+    networks:
+      - lead-scanner-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: lead-scanner-caddy
+    restart: always
+
+    env_file:
+      - .env
+
     ports:
+      - "80:80"
+      - "3000:3000"
       - "6006:6006"
-      - "4317:4317"
+      - "8001:8001"
+      - "9090:9090"
+
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/site:/srv:ro
+      - caddy-data:/data
 
     logging: *default-logging
 
@@ -213,6 +225,7 @@ volumes:
   hf-cache:
   grafana-data:
   prometheus-data:
+  caddy-data:
 
 networks:
   lead-scanner-net:
