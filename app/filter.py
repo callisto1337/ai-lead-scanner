@@ -6,7 +6,7 @@ from app.retrieval import find_similar_messages
 from app.settings import MIN_INTENT_SCORE, MIN_NICHE_SCORE
 from app.types import IsLeadResult, NicheId, NicheWithConfig
 
-PROMPT_VERSION = "classifier_v10"
+PROMPT_VERSION = "classifier_v11"
 
 
 def format_list(items: list[str]) -> str:
@@ -92,33 +92,7 @@ def build_memory_examples(
     return "\n\n".join(examples)
 
 
-def build_prompt(
-    text: str,
-    niche: NicheWithConfig,
-    memory_examples: str,
-    reply_text: str | None = None,
-    reply_author_relation: str | None = None,
-) -> str:
-    company_name = niche.get("company_name") or "Не указана"
-    niche_name = niche.get("name") or "Не указана"
-    about = niche.get("about") or "Не указано"
-    keywords = format_list(niche.get("keywords") or [])
-    blacklist = format_list(niche.get("blacklist") or [])
-    # есть в админке, надо добавить в промт
-    # extra_rules = format_list(niche.get("blacklist") or [])
-
-    if reply_text:
-        reply_block = f"""
-    Связь CURRENT_USER и REPLY_USER:
-    {reply_author_relation}
-
-    Сообщение REPLY_USER:
-    {reply_text}
-        """.strip()
-    else:
-        reply_block = "Сообщение REPLY_USER отсутствует."
-
-    return f"""
+STATIC_RULES = """
 РОЛЬ:
 
 Ты сотрудник компании, который ищет потенциальных клиентов
@@ -149,41 +123,6 @@ REPLY_USER может быть тем же человеком или други�
 
 Информация о связи между CURRENT_USER и REPLY_USER является достоверной.
 Не пытайся определять авторство самостоятельно по тексту.
-
-
-ТЕКУЩАЯ НИША:
-
-Компания:
-{company_name}
-
-Название:
-{niche_name}
-
-Описание услуг:
-{about}
-
-Тематические подсказки:
-{keywords}
-
-Исключённые направления:
-{blacklist}
-
-
-ПРИМЕРЫ С ОЦЕНКОЙ ЧЕЛОВЕКА:
-
-{memory_examples}
-
-Правила использования примеров:
-
-- true означает, что оператор положительно оценил конкретное сообщение;
-- false означает, что оператор отрицательно оценил конкретное сообщение;
-- причины оценки отдельно не классифицировались и неизвестны;
-- не пытайся выводить из true обязательное наличие явной потребности,
-  готовности купить или конкретного типа запроса;
-- используй примеры только как ориентиры для похожих случаев;
-- не копируй оценку автоматически по совпадению отдельных слов;
-- не переноси факты или намерения из примеров в сообщение CURRENT_USER;
-- niche_score и intent_score для CURRENT_USER выставляй самостоятельно.
 
 
 NICHE_SCORE:
@@ -328,7 +267,6 @@ intent_score показывает, насколько CURRENT_USER сам нуж
 даже если сообщение REPLY_USER содержит явную проблему
 потенциального клиента.
 
-
 Шкала:
 
 0-20 — CURRENT_USER не ищет помощь: отвечает, консультирует,
@@ -388,25 +326,30 @@ intent_score показывает, насколько CURRENT_USER сам нуж
   или готовое решение должны получить intent_score не выше 20.
 
 
-СООБЩЕНИЕ REPLY_USER:
+ПРАВИЛА ИСПОЛЬЗОВАНИЯ ПРИМЕРОВ:
 
-{reply_block}
+Ниже будет передан блок примеров с оценкой человека.
+
+- true означает, что оператор положительно оценил конкретное сообщение;
+- false означает, что оператор отрицательно оценил конкретное сообщение;
+- причины оценки отдельно не классифицировались и неизвестны;
+- не пытайся выводить из true обязательное наличие явной потребности,
+  готовности купить или конкретного типа запроса;
+- используй примеры только как ориентиры для похожих случаев;
+- не копируй оценку автоматически по совпадению отдельных слов;
+- не переноси факты или намерения из примеров в сообщение CURRENT_USER;
+- niche_score и intent_score для CURRENT_USER выставляй самостоятельно.
 
 
-СООБЩЕНИЕ CURRENT_USER:
-
-{text}
-
-
-ОТВЕТ:
+ФОРМАТ ОТВЕТА:
 
 Верни только валидный JSON без markdown и пояснений:
 
-{{
+{
   "niche_score": 0,
   "intent_score": 0,
   "description": "краткое объяснение оценок"
-}}
+}
 
 Требования:
 
@@ -423,6 +366,72 @@ intent_score показывает, насколько CURRENT_USER сам нуж
 - description не должно приписывать CURRENT_USER
   проблему или потребность REPLY_USER.
 """.strip()
+
+
+def build_prompt(
+    text: str,
+    niche: NicheWithConfig,
+    memory_examples: str,
+    reply_text: str | None = None,
+    reply_author_relation: str | None = None,
+) -> str:
+    company_name = niche.get("company_name") or "Не указана"
+    niche_name = niche.get("name") or "Не указана"
+    about = niche.get("about") or "Не указано"
+    keywords = format_list(niche.get("keywords") or [])
+    blacklist = format_list(niche.get("blacklist") or [])
+    # есть в админке, надо добавить в промт
+    # extra_rules = format_list(niche.get("blacklist") or [])
+
+    if reply_text:
+        reply_block = f"""
+    Связь CURRENT_USER и REPLY_USER:
+    {reply_author_relation}
+
+    Сообщение REPLY_USER:
+    {reply_text}
+        """.strip()
+    else:
+        reply_block = "Сообщение REPLY_USER отсутствует."
+
+    return f"""{STATIC_RULES}
+
+
+ТЕКУЩАЯ НИША:
+
+Компания:
+{company_name}
+
+Название:
+{niche_name}
+
+Описание услуг:
+{about}
+
+Тематические подсказки:
+{keywords}
+
+Исключённые направления:
+{blacklist}
+
+
+ПРИМЕРЫ С ОЦЕНКОЙ ЧЕЛОВЕКА:
+
+{memory_examples}
+
+
+СООБЩЕНИЕ REPLY_USER:
+
+{reply_block}
+
+
+СООБЩЕНИЕ CURRENT_USER:
+
+{text}
+
+
+ОТВЕТ:
+"""
 
 
 def normalize_ai_score(value: Any) -> int:
