@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterable
 
 from app.db.dedup import exists_seen_message
@@ -29,10 +30,9 @@ def find_stopword(
     for word in stopwords:
         normalized_word = normalize(word)
 
-        if (
-            normalized_word
-            and normalized_word in normalized_text
-        ):
+        pattern = r"(?<!\w)" + re.escape(normalized_word) + r"(?!\w)"
+
+        if re.search(pattern, normalized_text):
             return word
 
     return None
