@@ -2,6 +2,7 @@ import asyncio
 import traceback
 from datetime import datetime, timezone
 
+from app.db.dedup import save_seen_message
 from app.db.lead_results import has_recent_user_lead
 from app.metrics import user_lead_cooldown_skipped, message_queue_size, message_processing_delay_seconds
 from app.prefilter import prefilter_niche_message
@@ -199,6 +200,7 @@ async def message_worker(
             )
 
             await process_job(job)
+            save_seen_message(job["clean_text"])
 
         except Exception as e:
             print(

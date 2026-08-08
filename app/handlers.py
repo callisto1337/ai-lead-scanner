@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from telethon import events  # pyright: ignore[reportMissingTypeStubs]
 
 from app.db.blacklist_users import is_blacklisted
-from app.db.dedup import save_seen_message
 from app.db.messages import save_message
 from app.metrics import spam_detected, message_queue_size, prefilter_rejected_total, prefilter_passed_total
 from app.prefilter import prefilter_message
@@ -125,8 +124,6 @@ async def handle_new_message(
         return
 
     prefilter_passed_total.inc()
-
-    save_seen_message(clean_text)
 
     reply_text: str | None = None
     reply_sender_id: TgUserId | None = None
