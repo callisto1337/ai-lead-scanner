@@ -73,7 +73,7 @@ def prefilter_message(
 
     if stopword:
         return reject(
-            f"global_stopword:{stopword}"
+            "global_stopword"
         )
 
     return accept()
