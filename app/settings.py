@@ -4,6 +4,26 @@ import os
 
 load_dotenv()
 
+
+def env_flag(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+
+    if raw is None:
+        return default
+
+    value = raw.strip().lower()
+
+    if value in ("1", "true", "yes", "on"):
+        return True
+
+    if value in ("0", "false", "no", "off"):
+        return False
+
+    raise ValueError(
+        f"{name}: invalid boolean value '{raw}'"
+    )
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = BASE_DIR / "config"
 SESSIONS_DIR = BASE_DIR / "sessions"
@@ -11,8 +31,8 @@ SESSIONS_DIR = BASE_DIR / "sessions"
 SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 
 API_ID = int(os.getenv("API_ID", "0"))
-API_HASH = str(os.getenv("API_HASH", ""))
-BOT_TOKEN = str(os.getenv("BOT_TOKEN", ""))
+API_HASH = os.getenv("API_HASH", "")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
 CHAR_REPLACEMENTS_FILE = CONFIG_DIR / "char_replacements.txt"
 
@@ -33,7 +53,7 @@ PHOENIX_COLLECTOR_ENDPOINT = os.getenv(
     "http://phoenix:6006/v1/traces",
 )
 PHOENIX_PROJECT_NAME = os.getenv("PHOENIX_PROJECT_NAME", "lead-scanner")
-PHOENIX_ENABLED = bool(os.getenv("PHOENIX_ENABLED", True))
+PHOENIX_ENABLED = env_flag("PHOENIX_ENABLED", True)
 
 MIN_NICHE_SCORE = int(os.getenv("MIN_NICHE_SCORE", "75"))
 MIN_INTENT_SCORE = int(os.getenv("MIN_INTENT_SCORE", "75"))
