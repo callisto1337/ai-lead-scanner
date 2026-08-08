@@ -12,7 +12,7 @@ except ImportError:
 
 import requests
 
-from app.metrics import ai_request_duration_seconds
+from app.metrics import ai_request_duration_seconds, ai_errors
 from app.tracing_client import get_tracer
 from app.settings import AI_TIMEOUT_SECONDS, MODEL_API_URL, MODEL_NAME
 
@@ -76,6 +76,10 @@ def call_model(
                     )
 
                     if not response.ok:
+                        ai_errors.labels(
+                            reason="http_4xx" if response.status_code < 500 else "http_5xx"
+                        ).inc()
+
                         logger.error(
                             "Model API error: status=%s body=%s",
                             response.status_code,
@@ -104,6 +108,7 @@ def call_model(
                     raw_result: object = response.json()
 
                 except requests.Timeout:
+                    ai_errors.labels(reason="timeout").inc()
                     logger.exception("Model API timeout")
                     print("❌ Model API timeout", flush=True)
 
@@ -113,6 +118,7 @@ def call_model(
                     return None
 
                 except requests.RequestException as error:
+                    ai_errors.labels(reason="connection").inc()
                     logger.exception("Model API request failed")
 
                     print(

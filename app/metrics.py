@@ -51,6 +51,12 @@ ai_request_duration_seconds = Histogram(
     buckets=(1, 2, 3, 5, 8, 13, 20, 30, 45, 60, 90),
 )
 
+ai_errors = Counter(
+    "lead_scanner_ai_errors_total",
+    "Ошибки при обращении к модели",
+    ["reason"],
+)
+
 message_queue_size = Gauge(
     "lead_scanner_message_queue_size",
     "Текущее количество сообщений в очереди",

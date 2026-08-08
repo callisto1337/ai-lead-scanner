@@ -1,10 +1,10 @@
 from typing import Any
 
+from app.metrics import ai_errors
 from app.model_client import call_model
 from app.retrieval import find_similar_messages
 from app.settings import MIN_INTENT_SCORE, MIN_NICHE_SCORE
 from app.types import IsLeadResult, NicheId, NicheWithConfig
-
 
 PROMPT_VERSION = "classifier_v10"
 
@@ -117,7 +117,6 @@ def build_prompt(
         """.strip()
     else:
         reply_block = "Сообщение REPLY_USER отсутствует."
-
 
     return f"""
 РОЛЬ:
@@ -499,15 +498,22 @@ def is_lead(
         print("❌ is_lead: call_model returned None", flush=True)
         print(f"TEXT: {text}", flush=True)
         print(f"NICHE: {niche.get('name')}", flush=True)
+
         return None
 
-    niche_score = normalize_ai_score(
-        data.get("niche_score")
-    )
+    raw_niche_score = data.get("niche_score")
+    raw_intent_score = data.get("intent_score")
 
-    intent_score = normalize_ai_score(
-        data.get("intent_score")
-    )
+    if (
+        not isinstance(raw_niche_score, int) or not isinstance(raw_intent_score, int)
+    ):
+        ai_errors.labels(reason="invalid_scores").inc()
+        print(f"❌ Invalid niche_score: {raw_niche_score}", flush=True)
+
+        return None
+
+    niche_score = int(raw_niche_score)
+    intent_score = int(raw_intent_score)
 
     final_lead = (
         niche_score >= MIN_NICHE_SCORE
