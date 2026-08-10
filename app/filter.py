@@ -482,10 +482,11 @@ def is_lead(
     else:
         reply_author_relation = "другой автор"
 
-    memory_examples = build_memory_examples(
-        text=text,
-        niche_id=niche["id"],
-    )
+    memory_examples = ''
+    # memory_examples = build_memory_examples(
+    #     text=text,
+    #     niche_id=niche["id"],
+    # )
 
     tracing_metadata, tracing_tags = build_tracing_context(niche)
 
