@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from contextlib import nullcontext
 from time import perf_counter
 from typing import Any, cast, ContextManager, Callable, Optional
@@ -14,10 +15,60 @@ import requests
 
 from app.metrics import ai_request_duration_seconds, ai_errors
 from app.tracing_client import get_tracer
-from app.settings import AI_TIMEOUT_SECONDS, MODEL_API_URL, MODEL_NAME
+from app.settings import AI_TIMEOUT_SECONDS, VLLM_API_KEY, VLLM_URL, MODEL_NAME
 
 
 logger = logging.getLogger(__name__)
+
+
+OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "niche_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+        },
+        "intent_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+        },
+        "description": {
+            "type": "string",
+        },
+    },
+    "required": [
+        "niche_score",
+        "intent_score",
+        "description",
+    ],
+    "additionalProperties": False,
+}
+
+
+def extract_json(raw: str) -> dict[str, Any]:
+    raw = raw.strip()
+
+    try:
+        result: Any = json.loads(raw)
+    except json.JSONDecodeError:
+        result = None
+
+    if isinstance(result, dict):
+        return cast(dict[str, Any], result)
+
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+
+    if match is None:
+        raise ValueError(f"No JSON found in model response: {raw}")
+
+    result = json.loads(match.group(0))
+
+    if not isinstance(result, dict):
+        raise ValueError("Model response is not a JSON object")
+
+    return cast(dict[str, Any], result)
 
 
 def call_model(
@@ -27,16 +78,31 @@ def call_model(
 ) -> dict[str, Any] | None:
     tracer = get_tracer()
     payload: dict[str, Any] = {
-        "prompt": prompt,
         "model": MODEL_NAME,
-        "format": "json",
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
         "stream": False,
-        "think": False,
-        "options": {
-            "temperature": 0,
-            "num_predict": 256,
+        "temperature": 0,
+        "max_tokens": 256,
+        "chat_template_kwargs": {
+            "enable_thinking": False,
+        },
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "lead-classification",
+                "schema": OUTPUT_SCHEMA,
+            },
         },
     }
+
+    headers = (
+        {"Authorization": f"Bearer {VLLM_API_KEY}"} if VLLM_API_KEY else {}
+    )
 
     started_at = perf_counter()
 
@@ -70,8 +136,9 @@ def call_model(
 
                 try:
                     response = requests.post(
-                        f"{MODEL_API_URL}/generate",
+                        f"{VLLM_URL}/chat/completions",
                         json=payload,
+                        headers=headers,
                         timeout=AI_TIMEOUT_SECONDS,
                     )
 
@@ -185,16 +252,26 @@ def call_model(
                     return None
 
                 result = cast(dict[str, Any], raw_result)
+                choices: list[Any] = result.get("choices") or []
 
-                if not result.get("ok"):
-                    error = result.get("error")
-                    raw = result.get("raw")
+                if not choices:
+                    logger.warning("Model API returned no choices: %s", result)
 
-                    logger.warning(
-                        "Model returned invalid JSON: error=%s raw=%s",
-                        error,
-                        raw,
-                    )
+                    print("❌ Model API returned no choices", flush=True)
+
+                    if span is not None:
+                        span.set_output(json.dumps({"error": "no_choices"}))
+
+                    return None
+
+                message: dict[str, Any] = choices[0].get("message") or {}
+                raw: str = message.get("content") or ""
+
+                try:
+                    data = extract_json(raw)
+
+                except Exception as error:
+                    logger.warning("Model returned invalid JSON: raw=%s", raw)
 
                     print("❌ Model returned invalid JSON", flush=True)
                     print(f"error: {error}", flush=True)
@@ -204,28 +281,14 @@ def call_model(
                     if span is not None:
                         span.set_output(
                             json.dumps(
-                                {"error": error, "raw": raw},
+                                {"error": str(error), "raw": raw},
                                 ensure_ascii=False,
                             )
                         )
 
                     return None
 
-                data = result.get("data")
-
-                if not isinstance(data, dict):
-                    logger.warning("Model API data is not dict: %s", result)
-
-                    print("❌ Model API data is not dict", flush=True)
-                    print("result:", flush=True)
-                    print(result, flush=True)
-
-                    if span is not None:
-                        span.set_output(json.dumps({"error": "data_is_not_dict"}))
-
-                    return None
-
                 if span is not None:
                     span.set_output(json.dumps(data, ensure_ascii=False))
 
-                return cast(dict[str, Any], data)
+                return data

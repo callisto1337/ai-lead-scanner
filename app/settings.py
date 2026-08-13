@@ -44,8 +44,9 @@ DATABASE_URL = os.getenv(
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@postgres:5432/{POSTGRES_DB}"
 )
 
-MODEL_API_URL = os.getenv("MODEL_API_URL", "http://lead-scanner-model-api:8000")
-MODEL_NAME = os.getenv("MODEL_NAME", "qwen3:14b")
+VLLM_URL = os.getenv("VLLM_URL", "http://lead-scanner-vllm:8000/v1")
+VLLM_API_KEY = os.getenv("VLLM_API_KEY", "")
+MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen3-14B-AWQ")
 AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "90"))
 
 PHOENIX_COLLECTOR_ENDPOINT = os.getenv(
