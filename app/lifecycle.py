@@ -12,6 +12,7 @@ from app.message_worker import message_worker
 from app.metrics import start_metrics
 from app.settings import MESSAGE_WORKERS_COUNT
 from app.types import TelegramClientProtocol
+from app.watchdog import connection_watchdog
 
 
 def start_embedding_worker() -> None:
@@ -52,6 +53,11 @@ def run_monitor(client: TelegramClientProtocol) -> None:
             f"👷 Запущено message workers: {MESSAGE_WORKERS_COUNT}",
             flush=True,
         )
+
+        client.loop.create_task(
+            connection_watchdog(client)
+        )
+
         print("🖥️ Мониторинг запущен", flush=True)
 
         client.run_until_disconnected()

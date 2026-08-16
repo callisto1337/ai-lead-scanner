@@ -300,6 +300,12 @@ class TelegramClientProtocol(Protocol):
     def run_until_disconnected(self) -> object:
         ...
 
+    async def connect(self) -> None:
+        ...
+
+    async def disconnect(self) -> None:
+        ...
+
 
 class MessageData(TypedDict):
     text: str

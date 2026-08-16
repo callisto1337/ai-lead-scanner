@@ -1,0 +1,206 @@
+diff --git a/.env.example b/.env.example
+index 25032c2..a18ecd2 100644
+--- a/.env.example
++++ b/.env.example
+@@ -25,5 +25,8 @@ POSTGRES_PASSWORD=lead_scanner_password
+ 
+ BOT_ADMIN_IDS=232307602
+ 
++#MONITOR_STALE_THRESHOLD_SECONDS=1800
++#MONITOR_WATCHDOG_INTERVAL_SECONDS=60
++
+ CADDY_USER=
+ CADDY_PASSWORD_HASH=''
+\ No newline at end of file
+diff --git a/app/handlers.py b/app/handlers.py
+index 303f183..8691056 100644
+--- a/app/handlers.py
++++ b/app/handlers.py
+@@ -19,6 +19,7 @@ from app.types import (
+     TgUserId,
+ )
+ from app.utils import build_tg_link, normalize
++from app.watchdog import mark_event_received
+ 
+ 
+ def register_handlers(client: TelegramClientProtocol) -> None:
+@@ -26,6 +27,7 @@ def register_handlers(client: TelegramClientProtocol) -> None:
+     async def handler(  # pyright: ignore[reportUnusedFunction]
+         event: NewMessageEvent,
+     ) -> None:
++        mark_event_received()
+         await handle_new_message(event)
+ 
+ 
+diff --git a/app/lifecycle.py b/app/lifecycle.py
+index f26a0d1..43a2bcb 100644
+--- a/app/lifecycle.py
++++ b/app/lifecycle.py
+@@ -12,6 +12,7 @@ from app.message_worker import message_worker
+ from app.metrics import start_metrics
+ from app.settings import MESSAGE_WORKERS_COUNT
+ from app.types import TelegramClientProtocol
++from app.watchdog import connection_watchdog
+ 
+ 
+ def start_embedding_worker() -> None:
+@@ -52,6 +53,11 @@ def run_monitor(client: TelegramClientProtocol) -> None:
+             f"👷 Запущено message workers: {MESSAGE_WORKERS_COUNT}",
+             flush=True,
+         )
++
++        client.loop.create_task(
++            connection_watchdog(client)
++        )
++
+         print("🖥️ Мониторинг запущен", flush=True)
+ 
+         client.run_until_disconnected()
+diff --git a/app/settings.py b/app/settings.py
+index 78fb682..f021265 100644
+--- a/app/settings.py
++++ b/app/settings.py
+@@ -74,3 +74,10 @@ BOT_ADMIN_IDS = {
+ MESSAGE_WORKERS_COUNT = int(
+     os.getenv("MESSAGE_WORKERS_COUNT", "4")
+ )
++
++MONITOR_STALE_THRESHOLD_SECONDS = int(
++    os.getenv("MONITOR_STALE_THRESHOLD_SECONDS", "1800")
++)
++MONITOR_WATCHDOG_INTERVAL_SECONDS = int(
++    os.getenv("MONITOR_WATCHDOG_INTERVAL_SECONDS", "60")
++)
+diff --git a/app/types.py b/app/types.py
+index 522a670..6459bff 100644
+--- a/app/types.py
++++ b/app/types.py
+@@ -300,6 +300,12 @@ class TelegramClientProtocol(Protocol):
+     def run_until_disconnected(self) -> object:
+         ...
+ 
++    async def connect(self) -> None:
++        ...
++
++    async def disconnect(self) -> None:
++        ...
++
+ 
+ class MessageData(TypedDict):
+     text: str
+diff --git a/app/watchdog.py b/app/watchdog.py
+new file mode 100644
+index 0000000..37c62c6
+--- /dev/null
++++ b/app/watchdog.py
+@@ -0,0 +1,110 @@
++import asyncio
++import time
++
++from telegram import Bot
++
++from app.daily_summary import send_message_with_retry
++from app.settings import (
++    BOT_ADMIN_IDS,
++    BOT_TOKEN,
++    MONITOR_STALE_THRESHOLD_SECONDS,
++    MONITOR_WATCHDOG_INTERVAL_SECONDS,
++)
++from app.types import TelegramClientProtocol
++
++RECONNECT_RETRY_SECONDS = 300
++ALERT_GRACE_SECONDS = 180
++
++_last_event_at = time.monotonic()
++_notified = False
++_last_reconnect_attempt: float | None = None
++
++
++def mark_event_received() -> None:
++    global _last_event_at
++    _last_event_at = time.monotonic()
++
++
++async def _notify_admins(text: str) -> None:
++    if not BOT_ADMIN_IDS:
++        return
++
++    bot = Bot(BOT_TOKEN)
++
++    for admin_id in BOT_ADMIN_IDS:
++        try:
++            await send_message_with_retry(
++                bot=bot,
++                chat_id=admin_id,
++                text=text,
++            )
++
++        except Exception as error:
++            print(
++                f"❌ Не удалось уведомить админа {admin_id}: {error}",
++                flush=True,
++            )
++
++
++async def connection_watchdog(
++    client: TelegramClientProtocol,
++) -> None:
++    global _notified, _last_reconnect_attempt
++
++    print("🐕 Watchdog мониторинга запущен", flush=True)
++
++    while True:
++        await asyncio.sleep(MONITOR_WATCHDOG_INTERVAL_SECONDS)
++
++        now = time.monotonic()
++        idle_seconds = now - _last_event_at
++
++        if idle_seconds < MONITOR_STALE_THRESHOLD_SECONDS:
++            _last_reconnect_attempt = None
++
++            if _notified:
++                _notified = False
++
++                print("✅ Мониторинг снова получает сообщения", flush=True)
++
++                await _notify_admins(
++                    "✅ Мониторинг лидов снова получает сообщения из Telegram."
++                )
++
++            continue
++
++        if (
++            _last_reconnect_attempt is None
++            or now - _last_reconnect_attempt >= RECONNECT_RETRY_SECONDS
++        ):
++            print(
++                (
++                    f"⚠️ Нет новых сообщений {int(idle_seconds // 60)} мин, "
++                    "пробуем переподключиться"
++                ),
++                flush=True,
++            )
++
++            try:
++                await client.disconnect()
++                await client.connect()
++
++                print("🔄 Переподключение выполнено", flush=True)
++
++            except Exception as error:
++                print(f"❌ Ошибка переподключения: {error}", flush=True)
++
++            _last_reconnect_attempt = now
++
++        incident_age = idle_seconds - MONITOR_STALE_THRESHOLD_SECONDS
++
++        if incident_age >= ALERT_GRACE_SECONDS and not _notified:
++            _notified = True
++
++            print("🚨 Простой не устранён, уведомляем админов", flush=True)
++
++            await _notify_admins(
++                "🚨 Мониторинг лидов не получает сообщения из Telegram уже "
++                f"{int(idle_seconds // 60)} мин. Автоматическое "
++                "переподключение не помогло, нужна ручная проверка."
++            )

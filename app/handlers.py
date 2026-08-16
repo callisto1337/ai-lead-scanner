@@ -19,6 +19,7 @@ from app.types import (
     TgUserId,
 )
 from app.utils import build_tg_link, normalize
+from app.watchdog import mark_event_received
 
 
 def register_handlers(client: TelegramClientProtocol) -> None:
@@ -26,6 +27,7 @@ def register_handlers(client: TelegramClientProtocol) -> None:
     async def handler(  # pyright: ignore[reportUnusedFunction]
         event: NewMessageEvent,
     ) -> None:
+        mark_event_received()
         await handle_new_message(event)
 
 
