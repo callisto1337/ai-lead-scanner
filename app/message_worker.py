@@ -97,15 +97,17 @@ async def process_niche(
     result["text"] = job["clean_text"]
     result["reply_text"] = job["reply_text"]
 
-    if result["lead"]:
+    if result["verdict"] == "lead":
         print("🔥 Найден лид", flush=True)
+    elif result["verdict"] == "sporno":
+        print("❓ Спорный лид", flush=True)
     else:
         print("❌ Нерелевантное сообщение", flush=True)
 
     print(
         f"🤖 Объяснение: {result.get('description', 'Нет объяснения')} "
-        f"| intent_score={result.get('intent_score')} "
-        f"| niche_score={result.get('niche_score')} ",
+        f"| intent_match={result.get('intent_match')} "
+        f"| niche_match={result.get('niche_match')} ",
         flush=True,
     )
     print("---------------", flush=True)
@@ -125,8 +127,9 @@ async def process_niche(
     lead_result: LeadResult = {
         "lead_result_id": result["lead_result_id"],
         "lead": result["lead"],
-        "niche_score": result["niche_score"],
-        "intent_score": result["intent_score"],
+        "verdict": result["verdict"],
+        "niche_match": result["niche_match"],
+        "intent_match": result["intent_match"],
         "description": result["description"],
         "reply_author_relation": result["reply_author_relation"],
 

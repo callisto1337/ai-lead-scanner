@@ -6,7 +6,7 @@ from telegram.error import TimedOut, NetworkError, RetryAfter
 from telegram.request import HTTPXRequest
 
 from app.settings import BOT_TOKEN
-from app.bot.keyboards import build_rating_keyboard
+from app.bot.keyboards import build_niche_question_keyboard
 from app.bot.messages import build_lead_message
 from app.metrics import telegram_send_errors
 from app.types import LeadResult, LeadResultId, TgConfig
@@ -41,7 +41,7 @@ async def send_to_leads(
         text = text[:max_len] + "\n\n…сообщение обрезано"
 
     reply_markup = InlineKeyboardMarkup(
-        build_rating_keyboard(lead_result_id)
+        build_niche_question_keyboard(lead_result_id)
     )
 
     for attempt in range(1, 4):

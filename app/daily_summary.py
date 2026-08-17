@@ -118,6 +118,7 @@ def build_daily_summary_message(
                 [
                     "",
                     f"Найдено лидов: {item['leads_found']}",
+                    f"❓ Спорных лидов: {item['borderline_found']}",
                     "",
                     f"Оценено оператором: {item['rated']}",
                     f"👍 Хороших: {item['good']}",

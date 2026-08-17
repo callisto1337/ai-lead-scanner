@@ -14,13 +14,15 @@ def update_lead_feedback(
     feedback: str,
     human_lead: bool | None,
     rated_by: RatedBy,
+    niche_match: str | None = None,
+    intent_match: str | None = None,
 ) -> bool:
     rated_at = now_utc()
 
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT feedback, human_lead
+            SELECT feedback, human_lead, human_niche_match, human_intent_match
             FROM lead_results
             WHERE id = %s
             """,
@@ -36,6 +38,8 @@ def update_lead_feedback(
             SET
                 feedback = %s,
                 human_lead = %s,
+                human_niche_match = %s,
+                human_intent_match = %s,
                 rated_at = %s,
                 rated_by_id = %s,
                 rated_by_username = %s,
@@ -46,6 +50,8 @@ def update_lead_feedback(
             (
                 feedback,
                 human_lead,
+                niche_match,
+                intent_match,
                 rated_at,
                 rated_by.get("id"),
                 rated_by.get("username"),
@@ -63,13 +69,17 @@ def update_lead_feedback(
                 new_feedback,
                 previous_human_lead,
                 new_human_lead,
+                previous_niche_match,
+                new_niche_match,
+                previous_intent_match,
+                new_intent_match,
                 rated_at,
                 rated_by_id,
                 rated_by_username,
                 rated_by_name,
                 created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 lead_result_id,
@@ -77,6 +87,10 @@ def update_lead_feedback(
                 feedback,
                 row["human_lead"],
                 human_lead,
+                row["human_niche_match"],
+                niche_match,
+                row["human_intent_match"],
+                intent_match,
                 rated_at,
                 rated_by.get("id"),
                 rated_by.get("username"),

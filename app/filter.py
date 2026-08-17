@@ -1,12 +1,20 @@
+import concurrent.futures
 from typing import Any
 
 from app.metrics import ai_errors
-from app.model_client import call_model
+from app.model_client import (
+    INTENT_OUTPUT_SCHEMA,
+    NICHE_OUTPUT_SCHEMA,
+    call_model,
+)
 from app.retrieval import find_similar_messages
-from app.settings import MIN_INTENT_SCORE, MIN_NICHE_SCORE
+from app.settings import NICHE_EXAMPLES_ENABLED
 from app.types import IsLeadResult, NicheId, NicheWithConfig
 
-PROMPT_VERSION = "classifier_v13"
+NICHE_PROMPT_VERSION = "niche_v1"
+INTENT_PROMPT_VERSION = "intent_v1"
+
+MATCH_VALUES = {"да", "нет", "спорно"}
 
 
 def format_list(items: list[str]) -> str:
@@ -92,11 +100,11 @@ def build_memory_examples(
     return "\n\n".join(examples)
 
 
-STATIC_RULES = """
+NICHE_STATIC_RULES = """
 РОЛЬ:
 
-Ты сотрудник компании, который ищет потенциальных клиентов
-в общем потоке сообщений из разных Telegram-чатов.
+Ты сотрудник компании, который проверяет, относится ли сообщение
+из Telegram-чата к услугам компании.
 
 
 ЗАДАЧА:
@@ -107,47 +115,41 @@ STATIC_RULES = """
 Название компании, описание ниши и ключевые слова не означают,
 что сообщение связано с этой нишей.
 
-Независимо оцени два показателя:
-
-1. niche_score
-2. intent_score
+Определи одну категорию: niche_match.
 
 
 ОБОЗНАЧЕНИЯ ПОЛЬЗОВАТЕЛЕЙ:
 
 CURRENT_USER — автор текущего сообщения.
-Только CURRENT_USER оценивается как потенциальный лид.
-
 REPLY_USER — автор сообщения, на которое отвечает CURRENT_USER.
 REPLY_USER может быть тем же человеком или другим человеком.
 
 Информация о связи между CURRENT_USER и REPLY_USER является достоверной.
 Не пытайся определять авторство самостоятельно по тексту.
 
-
-ТОЧНОСТЬ ШКАЛ:
-
-Для итогового решения важно только, попадает ли оценка в диапазон 75-100
-или нет. Как только это понятно, не трать рассуждения на выбор точного
-числа между соседними диапазонами шкалы (например, 50-74 и 75-89) —
-бери любое значение из уже определившейся стороны шкалы и переходи дальше.
+Если авторство REPLY_USER неизвестно, считай его другим человеком.
 
 
-NICHE_SCORE:
+NICHE_MATCH:
 
-niche_score показывает, насколько тема или задача сообщения CURRENT_USER
-относится к услугам текущей ниши.
+niche_match показывает, относится ли тема или задача сообщения CURRENT_USER
+к услугам текущей ниши.
 
 Для определения темы используй сообщение CURRENT_USER
 и сообщение REPLY_USER, если оно передано.
 
-Шкала:
+Категории:
 
-0-20 — другая тема или задача не указана.
-21-49 — возможна слабая связь, которую приходится додумывать.
-50-74 — сообщение тематически близко, но задача описана неясно.
-75-89 — тема или задача явно относится к текущей нише.
-90-100 — задача напрямую соответствует конкретным услугам текущей ниши.
+да — сообщение упоминает или обсуждает конкретную тему, объект, процесс
+или услугу из списка ниши — независимо от того, задан вопрос, дан ответ
+или сделано утверждение.
+
+спорно — связь с нишей есть, но неясная: тема упомянута только через
+тематические подсказки, общий контекст чата или частичное сходство,
+без явного указания на конкретный процесс, объект или услугу ниши.
+
+нет — другая тема, либо тема не указана вовсе, либо сообщение
+подходит к любой профессии или услуге без конкретики.
 
 Правила:
 
@@ -155,37 +157,88 @@ niche_score показывает, насколько тема или задач�
   контекстом сообщения;
 - ключевые слова являются только тематическими подсказками;
 - нельзя переносить информацию из описания ниши в сообщение CURRENT_USER;
-- нельзя додумывать отсутствующую тему или задачу;
-- просьба о помощи не повышает niche_score без указания темы;
-- упоминание оплаты не повышает niche_score;
-- поиск исполнителя не повышает niche_score, если задача неизвестна;
-- сообщение, подходящее к любой профессии или услуге, должно получить 0-30;
-- запрос по другой нише должен получить низкий niche_score;
-- направление из списка исключений должно получить низкий niche_score;
-- niche_score 75 и выше допустим только тогда, когда сообщение CURRENT_USER
-  содержит конкретную тему, объект, процесс или проблему,
+- нельзя додумывать отсутствующую тему;
+- упоминание оплаты не даёт "да";
+- запрос по другой нише должен получить "нет";
+- направление из списка исключений должно получить "нет";
+- совпадение с нишей должно опираться на отличительные термины ниши
+  (тематические подсказки, конкретные названия систем и процессов
+  из описания услуг), а не на обычные слова, которые используются
+  и в других системах (например, "кабинет", "остатки", "склад", "коды",
+  "отчёт" сами по себе, без явной привязки к теме ниши);
+- если такое общее слово встречается без явной привязки именно к теме
+  ниши — это не даёт "да", максимум "спорно"; а если по контексту ясно,
+  что речь о другой системе — "нет", даже при формальном совпадении
+  отдельных слов;
+- "да" допустимо только тогда, когда сообщение CURRENT_USER
+  содержит конкретную тему, объект, процесс или услугу,
   которые можно напрямую сопоставить с услугами ниши;
 - если CURRENT_USER и REPLY_USER — один и тот же человек,
   сообщение REPLY_USER может восстановить пропущенную часть
-  собственной задачи CURRENT_USER;
+  темы сообщения CURRENT_USER;
 - если REPLY_USER — другой человек, его сообщение можно использовать
   только для уточнения смысла уже имеющихся слов и ссылок
   в сообщении CURRENT_USER;
-- тема или задача, присутствующая только в сообщении REPLY_USER,
-  не позволяет выставить CURRENT_USER niche_score выше 49;
-- если связь с нишей строится только на общих словах, тематических подсказках,
-  предполагаемом контексте чата или описании услуг, niche_score должен быть
-  не выше 49;
+- тема, присутствующая только в сообщении REPLY_USER,
+  не позволяет выставить "да" — максимум "спорно";
+- если связь с нишей строится только на общих словах, тематических
+  подсказках, предполагаемом контексте чата или описании услуг —
+  максимум "спорно";
 - если сообщение CURRENT_USER можно полностью понять без обращения
   к услугам текущей ниши, нельзя додумывать связь с ней.
 
 
-INTENT_SCORE:
+ФОРМАТ ОТВЕТА:
 
-intent_score показывает, насколько CURRENT_USER сам нуждается
-в помощи, консультации, обучении, сопровождении или выполнении задачи.
+Верни только валидный JSON без markdown и пояснений:
+
+{
+  "niche_match": "да",
+  "description": "краткое объяснение на русском языке"
+}
+
+Требования:
+
+- niche_match — одно из значений: "да", "нет", "спорно";
+- description — одно короткое предложение на русском языке,
+  объясняющее связь сообщения CURRENT_USER с нишей;
+- не добавляй текст до или после JSON;
+- description не должно утверждать наличие темы или задачи,
+  которых нет в сообщении CURRENT_USER или сообщении REPLY_USER.
+""".strip()
+
+
+INTENT_STATIC_RULES = """
+РОЛЬ:
+
+Ты сотрудник компании, который определяет, ищет ли автор сообщения
+помощь для решения собственной задачи.
+
+
+ЗАДАЧА:
+
+Проанализируй одно сообщение CURRENT_USER.
+
+Определи одну категорию: intent_match — показывает, насколько
+CURRENT_USER сам нуждается в помощи, консультации, обучении,
+сопровождении или выполнении задачи.
 
 Оценивай намерение только CURRENT_USER.
+
+
+ОБОЗНАЧЕНИЯ ПОЛЬЗОВАТЕЛЕЙ:
+
+CURRENT_USER — автор текущего сообщения.
+REPLY_USER — автор сообщения, на которое отвечает CURRENT_USER.
+REPLY_USER может быть тем же человеком или другим человеком.
+
+Информация о связи между CURRENT_USER и REPLY_USER является достоверной.
+Не пытайся определять авторство самостоятельно по тексту.
+
+Если авторство REPLY_USER неизвестно, считай его другим человеком.
+
+
+INTENT_MATCH:
 
 Сначала определи коммуникативную роль сообщения CURRENT_USER:
 
@@ -199,10 +252,10 @@ intent_score показывает, насколько CURRENT_USER сам нуж
 - CURRENT_USER предлагает собственные услуги;
 - CURRENT_USER сообщает информацию без собственного запроса.
 
-Высокий intent_score допустим только тогда, когда CURRENT_USER
-выражает собственную нерешённую потребность.
+"да" допустимо только тогда, когда CURRENT_USER выражает собственную
+нерешённую потребность.
 
-Наличие темы ниши, вопроса или просьбы в сообщении REPLY_USER
+Наличие вопроса или просьбы в сообщении REPLY_USER
 не является доказательством потребности CURRENT_USER.
 
 
@@ -214,8 +267,8 @@ intent_score показывает, насколько CURRENT_USER сам нуж
   собственной задачи CURRENT_USER;
 - оценивай оба сообщения как продолжение одной мысли;
 - короткое уточнение, вопрос о стоимости, порядке действий, сроках,
-  последствиях или инструкции может получить высокий intent_score;
-- благодарность или подтверждение не снижают intent_score,
+  последствиях или инструкции может получить "да";
+- благодарность или подтверждение не мешают "да",
   если после них CURRENT_USER задаёт новый вопрос;
 - описание собственной нерешённой проблемы в сообщении REPLY_USER
   можно учитывать при оценке намерения CURRENT_USER.
@@ -233,28 +286,21 @@ intent_score показывает, насколько CURRENT_USER сам нуж
   не обозначил собственную проблему;
 - диагностический или уточняющий вопрос CURRENT_USER,
   заданный для выяснения деталей или помощи REPLY_USER,
-  является частью помощи REPLY_USER
-  и должен получить intent_score не выше 20;
+  является частью помощи REPLY_USER и должен получить "нет";
 - реакция, комментарий или продолжение обсуждения ситуации REPLY_USER
-  без попытки помочь и без собственной задачи CURRENT_USER
-  должны получить intent_score от 21 до 49;
+  без попытки помочь и без собственной задачи CURRENT_USER — "спорно";
 - если нельзя уверенно определить, относится ли вопрос
-  к собственной задаче CURRENT_USER или к ситуации REPLY_USER,
-  intent_score должен быть не выше 49;
+  к собственной задаче CURRENT_USER или к ситуации REPLY_USER — "спорно";
 - сообщение о том, что CURRENT_USER связался с другим участником,
   продолжил общение в другом месте или уже совершил некоторое действие,
   само по себе не является запросом услуги;
 - краткое указание, что следует сделать, является решением или советом,
   а не собственной задачей CURRENT_USER;
 - ответ, совет, инструкция, готовое решение, диагностика или разъяснение
-  должны получить intent_score не выше 20;
-- высокий intent_score возможен только тогда, когда CURRENT_USER
+  должны получить "нет";
+- "да" возможно только тогда, когда CURRENT_USER
   явно описывает собственную аналогичную задачу, просит решение для себя,
   ищет исполнителя или запрашивает консультацию для своего случая.
-
-Если авторство REPLY_USER неизвестно (не подтверждено, что это тот же
-или другой человек), применяй правила как для другого человека:
-без подтверждения нельзя считать REPLY_USER тем же человеком.
 
 Признаки ответа, диагностики или консультации REPLY_USER:
 
@@ -270,72 +316,48 @@ intent_score показывает, насколько CURRENT_USER сам нуж
 - CURRENT_USER сообщает о выполненном действии
   без нового собственного запроса.
 
-Такие сообщения должны получить intent_score не выше 20,
+Такие сообщения должны получить "нет",
 даже если сообщение REPLY_USER содержит явную проблему
 потенциального клиента.
 
-Шкала:
+Категории:
 
-0-20 — CURRENT_USER не ищет помощь: отвечает, консультирует,
+да — CURRENT_USER прямо ищет специалиста или исполнителя, просит
+оказать услугу, запрашивает стоимость, сроки или условия выполнения
+работы для себя, либо явно описывает собственную нерешённую задачу
+и просит совет по своему случаю.
+
+спорно — CURRENT_USER реагирует, комментирует или продолжает
+обсуждение чужой ситуации, выражает неясный интерес либо возможную,
+но не подтверждённую собственную задачу; либо описывает свою
+ситуацию, но потребность в помощи выражена неясно.
+
+нет — CURRENT_USER не ищет помощь: отвечает, консультирует,
 диагностирует, даёт инструкцию, задаёт диагностический
-или уточняющий вопрос для помощи REPLY_USER,
-предлагает собственные услуги, сообщает информацию
-или описывает уже совершённое действие.
-
-21-49 — CURRENT_USER реагирует, комментирует
-или продолжает обсуждение чужой ситуации,
-выражает неясный интерес либо возможную,
-но не подтверждённую собственную задачу.
-
-50-74 — CURRENT_USER явно описывает собственную ситуацию или задачу,
-но потребность в помощи, консультации или выполнении работы
-выражена неясно.
-
-75-89 — CURRENT_USER явно описывает собственную нерешённую задачу,
-задаёт вопрос по своему случаю или просит совет,
-но прямо не ищет исполнителя и не запрашивает выполнение услуги.
-
-90-100 — CURRENT_USER прямо ищет специалиста или исполнителя,
-просит оказать услугу, запрашивает стоимость, сроки или условия
-выполнения работы для себя.
+или уточняющий вопрос для помощи REPLY_USER, предлагает
+собственные услуги, сообщает информацию или описывает уже
+совершённое действие.
 
 Правила:
 
-- конкретный вопрос по теме ниши может получить высокий intent_score,
-  только если относится к собственной ситуации CURRENT_USER;
+- конкретный вопрос может получить "да", только если относится
+  к собственной ситуации CURRENT_USER;
 - вопрос о выборе способа, порядке действий, правилах, сроках,
   последствиях, инструкции или значении термина
   может быть запросом на консультацию;
-- уточняющий вопрос может получить высокий intent_score,
+- уточняющий вопрос может получить "да",
   только если относится к собственной задаче CURRENT_USER;
 - CURRENT_USER необязательно прямо искать платную услугу или исполнителя;
 - описание ошибки или собственной проблемы CURRENT_USER
-  может получить высокий intent_score;
+  может получить "да";
 - вопрос о стоимости является признаком явного намерения,
   если стоимость интересует CURRENT_USER;
 - предложение собственных услуг не является потребностью CURRENT_USER;
 - поиск сотрудника в штат не является запросом услуги;
-- новости и объявления без вопроса или нерешённой задачи
-  должны получить низкий intent_score;
-- наличие темы ниши само по себе не повышает intent_score;
+- новости и объявления без вопроса или нерешённой задачи — "нет";
 - нельзя считать любое сообщение с вопросительным знаком
   запросом на услугу;
 - нельзя считать любой вопрос собственной потребностью CURRENT_USER.
-
-
-ПРАВИЛА ИСПОЛЬЗОВАНИЯ ПРИМЕРОВ:
-
-Ниже будет передан блок примеров с оценкой человека.
-
-- true означает, что оператор положительно оценил конкретное сообщение;
-- false означает, что оператор отрицательно оценил конкретное сообщение;
-- причины оценки отдельно не классифицировались и неизвестны;
-- не пытайся выводить из true обязательное наличие явной потребности,
-  готовности купить или конкретного типа запроса;
-- используй примеры только как ориентиры для похожих случаев;
-- не копируй оценку автоматически по совпадению отдельных слов;
-- не переноси факты или намерения из примеров в сообщение CURRENT_USER;
-- niche_score и intent_score для CURRENT_USER выставляй самостоятельно.
 
 
 ФОРМАТ ОТВЕТА:
@@ -343,55 +365,66 @@ intent_score показывает, насколько CURRENT_USER сам нуж
 Верни только валидный JSON без markdown и пояснений:
 
 {
-  "niche_score": 0,
-  "intent_score": 0,
-  "description": "краткое объяснение оценок"
+  "intent_match": "да",
+  "description": "краткое объяснение на русском языке"
 }
 
 Требования:
 
-- niche_score — целое число от 0 до 100;
-- intent_score — целое число от 0 до 100;
-- description — одно короткое предложение на русском языке;
-- description объясняет связь с нишей и коммуникативную роль CURRENT_USER;
+- intent_match — одно из значений: "да", "нет", "спорно";
+- description — одно короткое предложение на русском языке,
+  объясняющее коммуникативную роль CURRENT_USER;
 - если CURRENT_USER отвечает, консультирует или диагностирует
   ситуацию REPLY_USER, description должно прямо это отражать;
-- не возвращай поле lead;
 - не добавляй текст до или после JSON;
-- description не должно утверждать наличие темы или задачи,
-  которых нет в сообщении CURRENT_USER или сообщении REPLY_USER;
 - description не должно приписывать CURRENT_USER
   проблему или потребность REPLY_USER.
 """.strip()
 
 
-def build_prompt(
+def build_reply_block(
+    reply_text: str | None,
+    reply_author_relation: str | None,
+) -> str:
+    if reply_text:
+        return f"""
+Связь CURRENT_USER и REPLY_USER:
+{reply_author_relation}
+
+Сообщение REPLY_USER:
+{reply_text}
+        """.strip()
+
+    return "Сообщение REPLY_USER отсутствует."
+
+
+def build_niche_prompt(
     text: str,
     niche: NicheWithConfig,
-    memory_examples: str,
     reply_text: str | None = None,
     reply_author_relation: str | None = None,
+    memory_examples: str | None = None,
 ) -> str:
     company_name = niche.get("company_name") or "Не указана"
     niche_name = niche.get("name") or "Не указана"
     about = niche.get("about") or "Не указано"
     keywords = format_list(niche.get("keywords") or [])
     blacklist = format_list(niche.get("blacklist") or [])
-    # есть в админке, надо добавить в промт
-    # extra_rules = format_list(niche.get("blacklist") or [])
 
-    if reply_text:
-        reply_block = f"""
-    Связь CURRENT_USER и REPLY_USER:
-    {reply_author_relation}
+    reply_block = build_reply_block(reply_text, reply_author_relation)
 
-    Сообщение REPLY_USER:
-    {reply_text}
-        """.strip()
-    else:
-        reply_block = "Сообщение REPLY_USER отсутствует."
+    examples_block = (
+        f"""
 
-    return f"""{STATIC_RULES}
+ПРИМЕРЫ С ОЦЕНКОЙ ЧЕЛОВЕКА:
+
+{memory_examples}
+"""
+        if memory_examples
+        else ""
+    )
+
+    return f"""{NICHE_STATIC_RULES}
 
 
 ТЕКУЩАЯ НИША:
@@ -412,9 +445,28 @@ def build_prompt(
 {blacklist}
 
 
-ПРИМЕРЫ С ОЦЕНКОЙ ЧЕЛОВЕКА:
+СООБЩЕНИЕ REPLY_USER:
 
-{memory_examples}
+{reply_block}
+
+
+СООБЩЕНИЕ CURRENT_USER:
+
+{text}
+{examples_block}
+
+ОТВЕТ:
+"""
+
+
+def build_intent_prompt(
+    text: str,
+    reply_text: str | None = None,
+    reply_author_relation: str | None = None,
+) -> str:
+    reply_block = build_reply_block(reply_text, reply_author_relation)
+
+    return f"""{INTENT_STATIC_RULES}
 
 
 СООБЩЕНИЕ REPLY_USER:
@@ -431,16 +483,10 @@ def build_prompt(
 """
 
 
-def normalize_ai_score(value: Any) -> int:
-    try:
-        score = int(value)
-    except (TypeError, ValueError):
-        return 0
-
-    return max(0, min(score, 100))
-
-
-def build_tracing_context(niche: NicheWithConfig) -> tuple[dict[str, str], list[str]]:
+def build_tracing_context(
+    niche: NicheWithConfig,
+    prompt_version: str,
+) -> tuple[dict[str, str], list[str]]:
     company_name = str(niche.get("company_name") or "Не указана").strip() or "Не указана"
     niche_name = str(niche.get("name") or "Не указана").strip() or "Не указана"
     niche_slug = str(niche.get("slug") or "").strip()
@@ -450,7 +496,7 @@ def build_tracing_context(niche: NicheWithConfig) -> tuple[dict[str, str], list[
         "company_name": company_name,
         "niche_id": str(niche["id"]),
         "niche_name": niche_name,
-        "promptversion": PROMPT_VERSION,
+        "promptversion": prompt_version,
     }
 
     if niche_slug:
@@ -461,6 +507,49 @@ def build_tracing_context(niche: NicheWithConfig) -> tuple[dict[str, str], list[
     tags = [tag_value]
 
     return metadata, tags
+
+
+def combine_verdict(niche_match: str, intent_match: str) -> str:
+    if niche_match == "нет" or intent_match == "нет":
+        return "not_lead"
+
+    if niche_match == "да" and intent_match == "да":
+        return "lead"
+
+    if niche_match == "спорно" and intent_match == "спорно":
+        return "not_lead"
+
+    return "borderline"
+
+
+def _call_niche_model(
+    prompt: str,
+    metadata: dict[str, str],
+    tags: list[str],
+) -> dict[str, Any] | None:
+    return call_model(
+        prompt,
+        output_schema=NICHE_OUTPUT_SCHEMA,
+        schema_name="niche-classification",
+        span_name="niche-classification",
+        metadata=metadata,
+        tags=tags,
+    )
+
+
+def _call_intent_model(
+    prompt: str,
+    metadata: dict[str, str],
+    tags: list[str],
+) -> dict[str, Any] | None:
+    return call_model(
+        prompt,
+        output_schema=INTENT_OUTPUT_SCHEMA,
+        schema_name="intent-classification",
+        span_name="intent-classification",
+        metadata=metadata,
+        tags=tags,
+    )
 
 
 def is_lead(
@@ -479,61 +568,80 @@ def is_lead(
     else:
         reply_author_relation = "другой автор"
 
-    memory_examples = ''
-    # memory_examples = build_memory_examples(
-    #     text=text,
-    #     niche_id=niche["id"],
-    # )
+    memory_examples = (
+        build_memory_examples(text=text, niche_id=niche["id"])
+        if NICHE_EXAMPLES_ENABLED
+        else None
+    )
 
-    tracing_metadata, tracing_tags = build_tracing_context(niche)
-
-    prompt = build_prompt(
+    niche_prompt = build_niche_prompt(
         text=text,
         niche=niche,
+        reply_text=reply_text,
+        reply_author_relation=reply_author_relation,
         memory_examples=memory_examples,
+    )
+
+    intent_prompt = build_intent_prompt(
+        text=text,
         reply_text=reply_text,
         reply_author_relation=reply_author_relation,
     )
 
-    data = call_model(
-        prompt,
-        metadata=tracing_metadata,
-        tags=tracing_tags,
-    )
+    niche_metadata, niche_tags = build_tracing_context(niche, NICHE_PROMPT_VERSION)
+    intent_metadata, intent_tags = build_tracing_context(niche, INTENT_PROMPT_VERSION)
 
-    if not data:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        niche_future = executor.submit(
+            _call_niche_model, niche_prompt, niche_metadata, niche_tags
+        )
+        intent_future = executor.submit(
+            _call_intent_model, intent_prompt, intent_metadata, intent_tags
+        )
+
+        niche_data = niche_future.result()
+        intent_data = intent_future.result()
+
+    if not niche_data or not intent_data:
         print("❌ is_lead: call_model returned None", flush=True)
         print(f"TEXT: {text}", flush=True)
         print(f"NICHE: {niche.get('name')}", flush=True)
 
         return None
 
-    raw_niche_score = data.get("niche_score")
-    raw_intent_score = data.get("intent_score")
+    niche_match = niche_data.get("niche_match")
+    intent_match = intent_data.get("intent_match")
 
-    if (
-        not isinstance(raw_niche_score, int) or not isinstance(raw_intent_score, int)
-    ):
-        ai_errors.labels(reason="invalid_scores").inc()
-        print(f"❌ Invalid niche_score: {raw_niche_score}", flush=True)
+    if niche_match not in MATCH_VALUES or intent_match not in MATCH_VALUES:
+        ai_errors.labels(reason="invalid_match").inc()
+
+        print(
+            f"❌ Invalid match values: niche={niche_match} intent={intent_match}",
+            flush=True,
+        )
 
         return None
 
-    niche_score = int(raw_niche_score)
-    intent_score = int(raw_intent_score)
+    verdict = combine_verdict(niche_match, intent_match)
 
-    final_lead = (
-        niche_score >= MIN_NICHE_SCORE
-        and intent_score >= MIN_INTENT_SCORE
+    description = " ".join(
+        part
+        for part in (
+            niche_data.get("description"),
+            intent_data.get("description"),
+        )
+        if part
     )
 
     return IsLeadResult(
-        lead=final_lead,
-        niche_score=niche_score,
-        intent_score=intent_score,
-        description=data.get("description") or "",
+        lead=verdict != "not_lead",
+        verdict=verdict,
+        niche_match=niche_match,
+        intent_match=intent_match,
+        description=description,
         reply_author_relation=reply_author_relation,
-        raw_response=data,
-        prompt=prompt,
-        prompt_version=PROMPT_VERSION,
+        raw_response={"niche": niche_data, "intent": intent_data},
+        prompt=f"{niche_prompt}\n\n---\n\n{intent_prompt}",
+        niche_prompt_version=NICHE_PROMPT_VERSION,
+        intent_prompt_version=INTENT_PROMPT_VERSION,
     )

@@ -18,6 +18,12 @@ lead_detected = Counter(
     ["company_id", "niche_id"],
 )
 
+sporno_detected = Counter(
+    "lead_scanner_sporno_detected_total",
+    "Total AI detected borderline (sporno) leads",
+    ["company_id", "niche_id"],
+)
+
 spam_detected = Counter(
     "lead_scanner_spam_detected_total",
     "Total messages rejected by prefilter/spam filters",

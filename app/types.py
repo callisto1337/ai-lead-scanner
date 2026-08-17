@@ -1,7 +1,6 @@
 import asyncio
 
 from datetime import datetime
-from decimal import Decimal
 from typing import TypedDict, NewType, Protocol, NotRequired, Any, Callable, Awaitable
 
 TgMessageId = NewType("TgMessageId", int)
@@ -57,8 +56,9 @@ LeadResultId = NewType("LeadResultId", int)
 class LeadResult(TypedDict):
     lead_result_id: LeadResultId
     lead: bool
-    niche_score: int
-    intent_score: int
+    verdict: str
+    niche_match: str
+    intent_match: str
     description: str
     reply_author_relation: str | None
 
@@ -150,6 +150,8 @@ class RatingData(TypedDict):
     label: str
     text: str
     human_lead: bool | None
+    niche_match: str | None
+    intent_match: str | None
 
 
 class SummaryTarget(TypedDict):
@@ -169,13 +171,15 @@ class PrefilterResult(TypedDict):
 
 class IsLeadResult(TypedDict):
     lead: bool
-    niche_score: int
-    intent_score: int
+    verdict: str
+    niche_match: str
+    intent_match: str
     description: str
     reply_author_relation: str
     raw_response: dict[str, Any]
     prompt: str
-    prompt_version: str
+    niche_prompt_version: str
+    intent_prompt_version: str
 
 
 class TgUser(TypedDict):
@@ -194,22 +198,17 @@ class DailySummaryRow(TypedDict):
 
     checked: int
     leads_found: int
+    borderline_found: int
     rated: int
     good: int
     bad: int
     skipped: int
     spam: int
 
-    avg_niche_score: Decimal | None
-    avg_intent_score: Decimal | None
-
     without_reply: int
     reply_same_author: int
     reply_other_author: int
     reply_unknown_author: int
-
-    bad_score_75_79: int
-    bad_score_80_plus: int
 
 
 class DailySummaryStats(TypedDict):
@@ -220,22 +219,17 @@ class DailySummaryStats(TypedDict):
 
     checked: int
     leads_found: int
+    borderline_found: int
     rated: int
     good: int
     bad: int
     skipped: int
     spam: int
 
-    avg_niche_score: float | None
-    avg_intent_score: float | None
-
     without_reply: int
     reply_same_author: int
     reply_other_author: int
     reply_unknown_author: int
-
-    bad_score_75_79: int
-    bad_score_80_plus: int
 
     lead_percent: float
     precision: float | None
@@ -336,8 +330,9 @@ class MessageQueueItem(TypedDict):
 class ProcessMessageResult(TypedDict):
     lead_result_id: LeadResultId
     lead: bool
-    niche_score: int
-    intent_score: int
+    verdict: str
+    niche_match: str
+    intent_match: str
     description: str
     reply_author_relation: str | None
 

@@ -5,6 +5,7 @@ from app.metrics import (
     ai_request,
     lead_detected,
     message_received,
+    sporno_detected,
 )
 from app.types import (
     MessageId,
@@ -51,22 +52,26 @@ def process_message(
         description=ai_result.get("description", ""),
         prompt=ai_result.get("prompt"),
         raw_response=ai_result.get("raw_response"),
-        niche_score=ai_result.get("niche_score", 0),
-        intent_score=ai_result.get("intent_score", 0),
+        verdict=ai_result["verdict"],
+        niche_match=ai_result["niche_match"],
+        intent_match=ai_result["intent_match"],
     )
 
     if lead_result is None:
         raise RuntimeError("Не удалось сохранить результат классификации")
 
-    if ai_result["lead"]:
+    if ai_result["verdict"] == "lead":
         lead_detected.labels(**labels).inc()
+    elif ai_result["verdict"] == "sporno":
+        sporno_detected.labels(**labels).inc()
 
     result: ProcessMessageResult = {
         "lead_result_id": lead_result["id"],
         "lead": ai_result["lead"],
+        "verdict": ai_result["verdict"],
         "description": ai_result["description"],
-        "niche_score": ai_result["niche_score"],
-        "intent_score": ai_result["intent_score"],
+        "niche_match": ai_result["niche_match"],
+        "intent_match": ai_result["intent_match"],
         "reply_author_relation": ai_result.get(
             "reply_author_relation"
         ),

@@ -35,7 +35,7 @@ def run_bot():
     app.add_handler(
         CallbackQueryHandler(
             handle_rating_callback,
-            pattern=r"^(rate|edit_rate):",
+            pattern=r"^(rate|edit_rate|niche|intent|rate_back):",
         )
     )
     app.add_handler(

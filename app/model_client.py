@@ -15,32 +15,45 @@ import requests
 
 from app.metrics import ai_request_duration_seconds, ai_errors
 from app.tracing_client import get_tracer
-from app.settings import AI_TIMEOUT_SECONDS, VLLM_API_KEY, VLLM_URL, MODEL_NAME
+from app.settings import AI_TIMEOUT_SECONDS, ENABLE_THINKING, VLLM_API_KEY, VLLM_URL, MODEL_NAME
 
 
 logger = logging.getLogger(__name__)
 
 
-OUTPUT_SCHEMA: dict[str, Any] = {
+MATCH_ENUM = ["да", "нет", "спорно"]
+
+NICHE_OUTPUT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "niche_score": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 100,
-        },
-        "intent_score": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 100,
+        "niche_match": {
+            "type": "string",
+            "enum": MATCH_ENUM,
         },
         "description": {
             "type": "string",
         },
     },
     "required": [
-        "niche_score",
-        "intent_score",
+        "niche_match",
+        "description",
+    ],
+    "additionalProperties": False,
+}
+
+INTENT_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "intent_match": {
+            "type": "string",
+            "enum": MATCH_ENUM,
+        },
+        "description": {
+            "type": "string",
+        },
+    },
+    "required": [
+        "intent_match",
         "description",
     ],
     "additionalProperties": False,
@@ -73,6 +86,9 @@ def extract_json(raw: str) -> dict[str, Any]:
 
 def call_model(
     prompt: str,
+    output_schema: dict[str, Any],
+    schema_name: str,
+    span_name: str,
     metadata: dict[str, str] | None = None,
     tags: list[str] | None = None,
 ) -> dict[str, Any] | None:
@@ -87,15 +103,15 @@ def call_model(
         ],
         "stream": False,
         "temperature": 0,
-        "max_tokens": 256,
+        "max_tokens": 2048 if ENABLE_THINKING else 256,
         "chat_template_kwargs": {
-            "enable_thinking": False,
+            "enable_thinking": ENABLE_THINKING,
         },
         "response_format": {
             "type": "json_schema",
             "json_schema": {
-                "name": "lead-classification",
-                "schema": OUTPUT_SCHEMA,
+                "name": schema_name,
+                "schema": output_schema,
             },
         },
     }
@@ -108,7 +124,7 @@ def call_model(
 
     span_context = (
         tracer.start_as_current_span(
-            "model-classification",
+            span_name,
             openinference_span_kind="llm",
         )
         if tracer is not None

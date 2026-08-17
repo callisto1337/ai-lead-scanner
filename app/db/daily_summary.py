@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 from typing import cast
 from zoneinfo import ZoneInfo
 
@@ -31,8 +30,12 @@ def get_daily_summary_stats(
                 COUNT(lr.id) AS checked,
 
                 COUNT(lr.id) FILTER (
-                    WHERE lr.ai_lead = TRUE
+                    WHERE lr.verdict = 'lead'
                 ) AS leads_found,
+
+                COUNT(lr.id) FILTER (
+                    WHERE lr.verdict = 'sporno'
+                ) AS borderline_found,
 
                 COUNT(lr.id) FILTER (
                     WHERE lr.feedback IS NOT NULL
@@ -53,20 +56,6 @@ def get_daily_summary_stats(
                 COUNT(lr.id) FILTER (
                     WHERE lr.feedback = 'spam'
                 ) AS spam,
-
-                ROUND(
-                    AVG(lr.niche_score) FILTER (
-                        WHERE lr.ai_lead = TRUE
-                    ),
-                    1
-                ) AS avg_niche_score,
-
-                ROUND(
-                    AVG(lr.intent_score) FILTER (
-                        WHERE lr.ai_lead = TRUE
-                    ),
-                    1
-                ) AS avg_intent_score,
 
                 COUNT(lr.id) FILTER (
                     WHERE lr.ai_lead = TRUE
@@ -96,27 +85,7 @@ def get_daily_summary_stats(
                           m.user_id IS NULL
                           OR reply_message.user_id IS NULL
                       )
-                ) AS reply_unknown_author,
-
-                COUNT(lr.id) FILTER (
-                    WHERE lr.feedback = 'bad'
-                      AND lr.niche_score IS NOT NULL
-                      AND lr.intent_score IS NOT NULL
-                      AND LEAST(
-                          lr.niche_score,
-                          lr.intent_score
-                      ) BETWEEN 75 AND 79
-                ) AS bad_score_75_79,
-
-                COUNT(lr.id) FILTER (
-                    WHERE lr.feedback = 'bad'
-                      AND lr.niche_score IS NOT NULL
-                      AND lr.intent_score IS NOT NULL
-                      AND LEAST(
-                          lr.niche_score,
-                          lr.intent_score
-                      ) >= 80
-                ) AS bad_score_80_plus
+                ) AS reply_unknown_author
 
             FROM niches n
 
@@ -170,23 +139,16 @@ def get_daily_summary_stats(
                 "company_name": row["company_name"],
                 "checked": checked,
                 "leads_found": leads_found,
+                "borderline_found": row["borderline_found"] or 0,
                 "rated": row["rated"] or 0,
                 "good": good,
                 "bad": bad,
                 "skipped": row["skipped"] or 0,
                 "spam": row["spam"] or 0,
-                "avg_niche_score": decimal_to_float(
-                    row["avg_niche_score"]
-                ),
-                "avg_intent_score": decimal_to_float(
-                    row["avg_intent_score"]
-                ),
                 "without_reply": row["without_reply"] or 0,
                 "reply_same_author": row["reply_same_author"] or 0,
                 "reply_other_author": row["reply_other_author"] or 0,
                 "reply_unknown_author": row["reply_unknown_author"] or 0,
-                "bad_score_75_79": row["bad_score_75_79"] or 0,
-                "bad_score_80_plus": row["bad_score_80_plus"] or 0,
                 "lead_percent": (
                     round(leads_found * 100 / checked, 1)
                     if checked
@@ -202,12 +164,6 @@ def get_daily_summary_stats(
 
     return result
 
-
-def decimal_to_float(value: Decimal | None) -> float | None:
-    if value is None:
-        return None
-
-    return float(value)
 
 def get_active_summary_targets() -> list[SummaryTarget]:
     """

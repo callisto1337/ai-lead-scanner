@@ -67,6 +67,14 @@ REPLY_RELATION_LABELS: dict[str, str] = {
     "неизвестно": "❔ Автор reply неизвестен",
 }
 
+LEAD_HEADERS: dict[str, str] = {
+    "lead": "🔥 НОВЫЙ ЛИД",
+    "borderline": "❓ ВОЗМОЖНЫЙ ЛИД",
+}
+
+NICHE_QUESTION_TEXT = "❓ Тема ниши совпадает?"
+INTENT_QUESTION_TEXT = "❓ Автору нужна помощь?"
+
 
 def build_lead_message(
     result: LeadResult,
@@ -95,8 +103,10 @@ def build_lead_message(
             f"{short_reply_text}\n"
         )
 
+    header = LEAD_HEADERS.get(result.get("verdict") or "", "🔥 НОВЫЙ ЛИД")
+
     message = f"""
-🔥 НОВЫЙ ЛИД
+{header}
 {reply_block}
 💬 Сообщение:
 <pre>{html.escape(result.get("text", ""))}</pre>
@@ -113,5 +123,7 @@ def build_lead_message(
 
     if rating_block:
         message += f"\n\n{rating_block}"
+    else:
+        message += f"\n\n{NICHE_QUESTION_TEXT}"
 
     return message

@@ -186,6 +186,9 @@ def init_db():
                 ai_lead           BOOLEAN NOT NULL DEFAULT FALSE,
                 niche_score       INTEGER NOT NULL DEFAULT 0,
                 intent_score      INTEGER NOT NULL DEFAULT 0,
+                niche_match       TEXT,
+                intent_match      TEXT,
+                verdict           TEXT,
                 description       TEXT    NOT NULL DEFAULT '',
 
                 raw_response      JSONB,
@@ -193,6 +196,8 @@ def init_db():
 
                 human_lead        BOOLEAN,
                 feedback          TEXT,
+                human_niche_match TEXT,
+                human_intent_match TEXT,
 
                 sent_to_telegram  BOOLEAN     NOT NULL DEFAULT FALSE,
                 sent_at           TIMESTAMPTZ,
@@ -210,28 +215,62 @@ def init_db():
             )
             """
         )
+
+        conn.execute(
+            "ALTER TABLE lead_results ADD COLUMN IF NOT EXISTS niche_match TEXT"
+        )
+        conn.execute(
+            "ALTER TABLE lead_results ADD COLUMN IF NOT EXISTS intent_match TEXT"
+        )
+        conn.execute(
+            "ALTER TABLE lead_results ADD COLUMN IF NOT EXISTS verdict TEXT"
+        )
+        conn.execute(
+            "ALTER TABLE lead_results ADD COLUMN IF NOT EXISTS human_niche_match TEXT"
+        )
+        conn.execute(
+            "ALTER TABLE lead_results ADD COLUMN IF NOT EXISTS human_intent_match TEXT"
+        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS lead_feedback_events
             (
-                id                  BIGSERIAL PRIMARY KEY,
+                id                    BIGSERIAL PRIMARY KEY,
 
-                lead_result_id      BIGINT      NOT NULL REFERENCES lead_results (id) ON DELETE CASCADE,
+                lead_result_id        BIGINT      NOT NULL REFERENCES lead_results (id) ON DELETE CASCADE,
 
-                previous_feedback   TEXT,
-                new_feedback        TEXT        NOT NULL,
+                previous_feedback     TEXT,
+                new_feedback          TEXT        NOT NULL,
 
-                previous_human_lead BOOLEAN,
-                new_human_lead      BOOLEAN,
+                previous_human_lead   BOOLEAN,
+                new_human_lead        BOOLEAN,
 
-                rated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
-                rated_by_id         BIGINT,
-                rated_by_username   TEXT,
-                rated_by_name       TEXT,
+                previous_niche_match  TEXT,
+                new_niche_match       TEXT,
 
-                created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+                previous_intent_match TEXT,
+                new_intent_match      TEXT,
+
+                rated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+                rated_by_id           BIGINT,
+                rated_by_username     TEXT,
+                rated_by_name         TEXT,
+
+                created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
             )
             """
+        )
+        conn.execute(
+            "ALTER TABLE lead_feedback_events ADD COLUMN IF NOT EXISTS previous_niche_match TEXT"
+        )
+        conn.execute(
+            "ALTER TABLE lead_feedback_events ADD COLUMN IF NOT EXISTS new_niche_match TEXT"
+        )
+        conn.execute(
+            "ALTER TABLE lead_feedback_events ADD COLUMN IF NOT EXISTS previous_intent_match TEXT"
+        )
+        conn.execute(
+            "ALTER TABLE lead_feedback_events ADD COLUMN IF NOT EXISTS new_intent_match TEXT"
         )
         conn.execute(
             """
