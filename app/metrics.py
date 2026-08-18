@@ -69,6 +69,13 @@ thinking_retry_total = Counter(
     ["axis"],
 )
 
+extraction_empty_total = Counter(
+    "lead_scanner_extraction_empty_total",
+    "Количество сообщений, где извлечение тем вернуло пустой список "
+    "(niche_match='нет' без обращения к модели ниши)",
+    ["company_id", "niche_id"],
+)
+
 message_queue_size = Gauge(
     "lead_scanner_message_queue_size",
     "Текущее количество сообщений в очереди",

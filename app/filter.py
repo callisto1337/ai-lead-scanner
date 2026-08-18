@@ -1,22 +1,22 @@
 import concurrent.futures
-from typing import Any
+from typing import Any, cast
 
-from app.metrics import ai_errors, thinking_retry_total
+from app.metrics import ai_errors, extraction_empty_total, thinking_retry_total
 from app.model_client import (
+    EXTRACTION_OUTPUT_SCHEMA,
     INTENT_OUTPUT_SCHEMA,
     NICHE_OUTPUT_SCHEMA,
     call_model,
 )
-from app.retrieval import find_similar_messages
 from app.settings import (
-    NICHE_EXAMPLES_ENABLED,
     THINKING_MAX_TOKENS,
     THINKING_RETRY_ENABLED,
     THINKING_TIMEOUT_SECONDS,
 )
-from app.types import IsLeadResult, NicheId, NicheWithConfig
+from app.types import IsLeadResult, NicheWithConfig
 
-NICHE_PROMPT_VERSION = "niche_v1"
+EXTRACTION_PROMPT_VERSION = "extraction_v1"
+NICHE_PROMPT_VERSION = "niche_v2"
 INTENT_PROMPT_VERSION = "intent_v1"
 
 MATCH_VALUES = {"да", "нет", "спорно"}
@@ -36,91 +36,22 @@ def format_list(items: list[str]) -> str:
     )
 
 
-def build_memory_examples(
-    text: str,
-    niche_id: NicheId,
-    limit: int = 6,
-) -> str:
-    try:
-        rows = find_similar_messages(
-            text=text,
-            niche_id=niche_id,
-            limit=limit,
-        )
-    except Exception as error:
-        print(
-            (
-                "⚠️ Не удалось получить похожие примеры: "
-                f"{type(error).__name__}: {error}"
-            ),
-            flush=True,
-        )
-        return "Похожих примеров с оценкой человека нет."
-
-    if not rows:
-        return "Похожих примеров с оценкой человека нет."
-
-    examples: list[str] = []
-
-    for index, row in enumerate(rows, start=1):
-        human_assessment = (
-            "true"
-            if row["human_lead"]
-            else "false"
-        )
-
-        example_lines = [
-            f"Пример {index}:",
-            f'Сообщение CURRENT_USER: "{row["text"]}"',
-        ]
-
-        reply_text = row["reply_text"]
-
-        if reply_text:
-            example_lines.extend(
-                [
-                    (
-                        "Связь CURRENT_USER и REPLY_USER: "
-                        f'{row["reply_author_relation"]}'
-                    ),
-                    f'Сообщение REPLY_USER: "{reply_text}"',
-                ]
-            )
-        else:
-            example_lines.append(
-                "Сообщение REPLY_USER: отсутствует"
-            )
-
-        example_lines.extend(
-            [
-                f"Оценка человека: {human_assessment}",
-                f"Расстояние: {row['distance']:.4f}",
-            ]
-        )
-
-        examples.append(
-            "\n".join(example_lines)
-        )
-
-    return "\n\n".join(examples)
-
-
-NICHE_STATIC_RULES = """
+EXTRACTION_STATIC_RULES = """
 РОЛЬ:
 
-Ты сотрудник компании, который проверяет, относится ли сообщение
-из Telegram-чата к услугам компании.
+Ты помощник, который выделяет из сообщения Telegram-чата конкретные
+темы, объекты, процессы или услуги, если они упомянуты.
 
 
 ЗАДАЧА:
 
-Проанализируй одно сообщение CURRENT_USER.
+Проанализируй сообщение CURRENT_USER и, если передано, сообщение
+REPLY_USER. Извлеки список конкретных тем, объектов, процессов
+или услуг, упомянутых в этих сообщениях — дословно или близким
+пересказом.
 
-Сообщение может относиться к любой теме.
-Название компании, описание ниши и ключевые слова не означают,
-что сообщение связано с этой нишей.
-
-Определи одну категорию: niche_match.
+Не оценивай, к какой сфере деятельности или компании относится
+сообщение — просто перечисли, что конкретно упомянуто.
 
 
 ОБОЗНАЧЕНИЯ ПОЛЬЗОВАТЕЛЕЙ:
@@ -135,69 +66,101 @@ REPLY_USER может быть тем же человеком или други�
 Если авторство REPLY_USER неизвестно, считай его другим человеком.
 
 
+ПРАВИЛА:
+
+- перечисляй только то, что явно названо в сообщениях — не додумывай
+  и не обобщай смысл сообщения в тему, которой там нет;
+- если CURRENT_USER и REPLY_USER — один и тот же человек, сообщение
+  REPLY_USER может дополнять или продолжать тему CURRENT_USER;
+- если REPLY_USER — другой человек, используй его сообщение только
+  для понимания темы разговора, не приписывай его тему CURRENT_USER,
+  если она не подтверждена в сообщении CURRENT_USER;
+- каждая тема — короткая фраза (2-6 слов), а не пересказ всего
+  сообщения;
+- если сообщение не содержит ни одной конкретной темы, объекта,
+  процесса или услуги — верни пустой список;
+- не включай в список общие слова без конкретики (например,
+  "проблема", "вопрос", "кабинет" сами по себе, если не сказано,
+  какой именно кабинет или в чём проблема).
+
+
+ФОРМАТ ОТВЕТА:
+
+Верни только валидный JSON без markdown и пояснений:
+
+{
+  "topics": ["тема 1", "тема 2"]
+}
+
+Требования:
+
+- topics — список строк, каждая строка — короткая конкретная тема;
+- пустой список [], если конкретной темы нет;
+- не добавляй текст до или после JSON.
+""".strip()
+
+
+NICHE_STATIC_RULES = """
+РОЛЬ:
+
+Ты сотрудник компании, который проверяет, соответствует ли список
+тем услугам компании.
+
+
+ЗАДАЧА:
+
+Тебе передан список конкретных тем, объектов, процессов или услуг,
+упомянутых в сообщении Telegram-чата. Сам текст сообщения тебе
+не передаётся — только список тем.
+
+Список может быть пустым (обрабатывается отдельно, до тебя
+не доходит).
+
+Название компании, описание ниши и ключевые слова не означают,
+что список тем связан с этой нишей.
+
+Определи одну категорию: niche_match.
+
+
 NICHE_MATCH:
 
-niche_match показывает, относится ли тема или задача сообщения CURRENT_USER
-к услугам текущей ниши.
-
-Для определения темы используй сообщение CURRENT_USER
-и сообщение REPLY_USER, если оно передано.
+niche_match показывает, соответствует ли хотя бы одна тема из списка
+услугам текущей ниши.
 
 Категории:
 
-да — сообщение упоминает или обсуждает конкретную тему, объект, процесс
-или услугу из списка ниши — независимо от того, задан вопрос, дан ответ
-или сделано утверждение.
+да — хотя бы одна тема из списка напрямую соответствует конкретной
+услуге, процессу или объекту из описания ниши.
 
-спорно — связь с нишей есть, но неясная: тема упомянута только через
-тематические подсказки, общий контекст чата или частичное сходство,
-без явного указания на конкретный процесс, объект или услугу ниши.
+спорно — есть тематическая перекличка (смежная область, похожий
+процесс, общее слово), но точного соответствия конкретной услуге
+ниши среди тем нет.
 
-нет — другая тема, либо тема не указана вовсе, либо сообщение
-подходит к любой профессии или услуге без конкретики.
+нет — ни одна тема из списка не соответствует услугам ниши, даже
+отдалённо.
 
 Правила:
 
 - описание ниши используется только для сравнения и не является
-  контекстом сообщения;
+  источником тем;
 - ключевые слова являются только тематическими подсказками;
-- нельзя переносить информацию из описания ниши в сообщение CURRENT_USER;
-- нельзя додумывать отсутствующую тему;
-- упоминание оплаты не даёт "да";
-- запрос по другой нише должен получить "нет";
-- направление из списка исключений должно получить "нет";
+- сравнивай темы из списка с описанием услуг буквально — тема должна
+  называть тот же объект, процесс или услугу, а не просто относиться
+  к смежной или похожей области;
 - совпадение с нишей должно опираться на отличительные термины ниши
-  (тематические подсказки, конкретные названия систем и процессов
-  из описания услуг), а не на обычные слова, которые используются
-  и в других системах (например, "кабинет", "остатки", "склад", "коды",
-  "отчёт", "вывод", "автоматизация" сами по себе, без явной привязки
-  к теме ниши);
-- если такое общее слово встречается без явной привязки именно к теме
-  ниши — это не даёт "да", максимум "спорно"; а если по контексту ясно,
-  что речь о другой системе — "нет", даже при формальном совпадении
-  отдельных слов;
-- совпадение слова сообщения с формулировкой из описания услуг
-  само по себе не является привязкой к теме — привязка должна быть
-  явной в самом сообщении CURRENT_USER, а не выводиться из списка услуг;
+  (конкретные названия систем и процессов из описания услуг), а не
+  на обычные слова, которые могут описывать любую систему (например,
+  "кабинет", "остатки", "склад", "коды", "отчёт", "вывод",
+  "автоматизация" сами по себе, без более конкретной темы рядом);
+- такое общее слово само по себе не даёт "да", максимум "спорно";
+  если по остальным темам ясно, что речь о другой системе — "нет";
 - если ниша упомянута только как один из нескольких несвязанных
-  пунктов в общем перечне разнородных услуг, а не как основная тема
-  сообщения — максимум "спорно";
-- "да" допустимо только тогда, когда сообщение CURRENT_USER
-  содержит конкретную тему, объект, процесс или услугу,
-  которые можно напрямую сопоставить с услугами ниши;
-- если CURRENT_USER и REPLY_USER — один и тот же человек,
-  сообщение REPLY_USER может восстановить пропущенную часть
-  темы сообщения CURRENT_USER;
-- если REPLY_USER — другой человек, его сообщение можно использовать
-  только для уточнения смысла уже имеющихся слов и ссылок
-  в сообщении CURRENT_USER;
-- тема, присутствующая только в сообщении REPLY_USER,
-  не позволяет выставить "да" — максимум "спорно";
-- если связь с нишей строится только на общих словах, тематических
-  подсказках, предполагаемом контексте чата или описании услуг —
+  пунктов в общем списке разнородных тем, а не как основная тема —
   максимум "спорно";
-- если сообщение CURRENT_USER можно полностью понять без обращения
-  к услугам текущей ниши, нельзя додумывать связь с ней.
+- нельзя додумывать соответствие, которого нет явно среди
+  переданных тем;
+- если ни одна тема не имеет отношения к нише даже по касательной —
+  "нет".
 
 
 ФОРМАТ ОТВЕТА:
@@ -213,13 +176,11 @@ niche_match показывает, относится ли тема или зад
 
 - niche_match — одно из значений: "да", "нет", "спорно";
 - description — одно короткое предложение на русском языке,
-  объясняющее связь сообщения CURRENT_USER с нишей;
+  объясняющее, какая тема из списка (если есть) соответствует
+  услугам ниши;
 - не добавляй текст до или после JSON;
-- description не должно утверждать наличие темы или задачи,
-  которых нет в сообщении CURRENT_USER или сообщении REPLY_USER;
 - description не может называть конкретную систему, кабинет
-  или процесс из описания ниши, если это название не встречается
-  явно в самом сообщении CURRENT_USER или REPLY_USER.
+  или процесс из описания ниши, если её нет среди переданных тем.
 """.strip()
 
 
@@ -328,6 +289,10 @@ INTENT_MATCH:
 - CURRENT_USER запрашивает данные, необходимые для разбора
   ситуации REPLY_USER;
 - CURRENT_USER уточняет параметры проблемы REPLY_USER;
+- CURRENT_USER предлагает лично разобраться, проверить или ответить
+  по ситуации REPLY_USER (например, «напиши в личку, посмотрю»,
+  «скину ответ позже») — это помощь REPLY_USER, а не собственная
+  потребность, даже если формулировка звучит как готовность помочь;
 - CURRENT_USER сообщает о выполненном действии
   без нового собственного запроса.
 
@@ -415,31 +380,40 @@ def build_reply_block(
     return "Сообщение REPLY_USER отсутствует."
 
 
-def build_niche_prompt(
+def build_extraction_prompt(
     text: str,
-    niche: NicheWithConfig,
     reply_text: str | None = None,
     reply_author_relation: str | None = None,
-    memory_examples: str | None = None,
+) -> str:
+    reply_block = build_reply_block(reply_text, reply_author_relation)
+
+    return f"""{EXTRACTION_STATIC_RULES}
+
+
+СООБЩЕНИЕ REPLY_USER:
+
+{reply_block}
+
+
+СООБЩЕНИЕ CURRENT_USER:
+
+{text}
+
+
+ОТВЕТ:
+"""
+
+
+def build_niche_prompt(
+    topics: list[str],
+    niche: NicheWithConfig,
 ) -> str:
     company_name = niche.get("company_name") or "Не указана"
     niche_name = niche.get("name") or "Не указана"
     about = niche.get("about") or "Не указано"
     keywords = format_list(niche.get("keywords") or [])
     blacklist = format_list(niche.get("blacklist") or [])
-
-    reply_block = build_reply_block(reply_text, reply_author_relation)
-
-    examples_block = (
-        f"""
-
-ПРИМЕРЫ С ОЦЕНКОЙ ЧЕЛОВЕКА:
-
-{memory_examples}
-"""
-        if memory_examples
-        else ""
-    )
+    topics_block = format_list(topics)
 
     return f"""{NICHE_STATIC_RULES}
 
@@ -462,15 +436,10 @@ def build_niche_prompt(
 {blacklist}
 
 
-СООБЩЕНИЕ REPLY_USER:
+СПИСОК ТЕМ ИЗ СООБЩЕНИЯ:
 
-{reply_block}
+{topics_block}
 
-
-СООБЩЕНИЕ CURRENT_USER:
-
-{text}
-{examples_block}
 
 ОТВЕТ:
 """
@@ -539,6 +508,21 @@ def combine_verdict(niche_match: str, intent_match: str) -> str:
     return "borderline"
 
 
+def _call_extraction_model(
+    prompt: str,
+    metadata: dict[str, str],
+    tags: list[str],
+) -> dict[str, Any] | None:
+    return call_model(
+        prompt,
+        output_schema=EXTRACTION_OUTPUT_SCHEMA,
+        schema_name="topic-extraction",
+        span_name="topic-extraction",
+        metadata=metadata,
+        tags=tags,
+    )
+
+
 def _call_niche_model(
     prompt: str,
     metadata: dict[str, str],
@@ -597,18 +581,10 @@ def is_lead(
     else:
         reply_author_relation = "другой автор"
 
-    memory_examples = (
-        build_memory_examples(text=text, niche_id=niche["id"])
-        if NICHE_EXAMPLES_ENABLED
-        else None
-    )
-
-    niche_prompt = build_niche_prompt(
+    extraction_prompt = build_extraction_prompt(
         text=text,
-        niche=niche,
         reply_text=reply_text,
         reply_author_relation=reply_author_relation,
-        memory_examples=memory_examples,
     )
 
     intent_prompt = build_intent_prompt(
@@ -617,42 +593,97 @@ def is_lead(
         reply_author_relation=reply_author_relation,
     )
 
-    niche_metadata, niche_tags = build_tracing_context(niche, NICHE_PROMPT_VERSION)
+    extraction_metadata, extraction_tags = build_tracing_context(
+        niche, EXTRACTION_PROMPT_VERSION
+    )
     intent_metadata, intent_tags = build_tracing_context(niche, INTENT_PROMPT_VERSION)
 
+    # Волна 1: извлечение тем (niche-agnostic) и intent — независимы
+    # друг от друга, летят параллельно.
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        niche_future = executor.submit(
-            _call_niche_model, niche_prompt, niche_metadata, niche_tags
+        extraction_future = executor.submit(
+            _call_extraction_model, extraction_prompt, extraction_metadata, extraction_tags
         )
         intent_future = executor.submit(
             _call_intent_model, intent_prompt, intent_metadata, intent_tags
         )
 
-        niche_data = niche_future.result()
+        extraction_data = extraction_future.result()
         intent_data = intent_future.result()
 
-    if not niche_data or not intent_data:
+    if not extraction_data or not intent_data:
         print("❌ is_lead: call_model returned None", flush=True)
         print(f"TEXT: {text}", flush=True)
         print(f"NICHE: {niche.get('name')}", flush=True)
 
         return None
 
-    niche_match = niche_data.get("niche_match")
+    raw_topics = extraction_data.get("topics")
     intent_match = intent_data.get("intent_match")
 
-    if niche_match not in MATCH_VALUES or intent_match not in MATCH_VALUES:
-        ai_errors.labels(reason="invalid_match").inc()
+    valid_topics = False
 
-        print(
-            f"❌ Invalid match values: niche={niche_match} intent={intent_match}",
-            flush=True,
-        )
+    if isinstance(raw_topics, list):
+        candidate_topics = cast(list[Any], raw_topics)
+        valid_topics = all(isinstance(item, str) for item in candidate_topics)
+
+    if not valid_topics:
+        ai_errors.labels(reason="invalid_extraction").inc()
+
+        print(f"❌ Invalid extraction topics: {raw_topics!r}", flush=True)
 
         return None
 
+    topics = cast(list[str], raw_topics)
+
+    if intent_match not in MATCH_VALUES:
+        ai_errors.labels(reason="invalid_match").inc()
+
+        print(f"❌ Invalid intent_match: {intent_match}", flush=True)
+
+        return None
+
+    # Волна 2: сопоставление с нишей — только если извлечены темы.
+    # Пустой список тем -> "нет" без обращения к модели ниши вообще.
+    niche_prompt: str | None = None
+    niche_metadata, niche_tags = build_tracing_context(niche, NICHE_PROMPT_VERSION)
+
+    if not topics:
+        extraction_empty_total.labels(
+            company_id=str(niche["company_id"]),
+            niche_id=str(niche["id"]),
+        ).inc()
+
+        niche_match = "нет"
+        niche_data: dict[str, Any] = {
+            "niche_match": "нет",
+            "description": "Конкретная тема в сообщении не выявлена.",
+        }
+    else:
+        niche_prompt = build_niche_prompt(topics=topics, niche=niche)
+
+        niche_data_result = _call_niche_model(niche_prompt, niche_metadata, niche_tags)
+
+        if not niche_data_result:
+            print("❌ is_lead: call_model returned None", flush=True)
+            print(f"TEXT: {text}", flush=True)
+            print(f"NICHE: {niche.get('name')}", flush=True)
+
+            return None
+
+        niche_match = niche_data_result.get("niche_match")
+
+        if niche_match not in MATCH_VALUES:
+            ai_errors.labels(reason="invalid_match").inc()
+
+            print(f"❌ Invalid niche_match: {niche_match}", flush=True)
+
+            return None
+
+        niche_data = niche_data_result
+
     if THINKING_RETRY_ENABLED:
-        retry_niche = niche_match != "нет"
+        retry_niche = niche_prompt is not None and niche_match != "нет"
         retry_intent = intent_match != "нет"
 
         if retry_niche or retry_intent:
@@ -673,7 +704,7 @@ def is_lead(
                         max_tokens=THINKING_MAX_TOKENS,
                         timeout=THINKING_TIMEOUT_SECONDS,
                     )
-                    if retry_niche
+                    if retry_niche and niche_prompt is not None
                     else None
                 )
                 intent_retry_future = (
@@ -721,6 +752,13 @@ def is_lead(
         if part
     )
 
+    prompt_parts = [extraction_prompt]
+
+    if niche_prompt is not None:
+        prompt_parts.append(niche_prompt)
+
+    prompt_parts.append(intent_prompt)
+
     return IsLeadResult(
         lead=verdict != "not_lead",
         verdict=verdict,
@@ -728,8 +766,8 @@ def is_lead(
         intent_match=intent_match,
         description=description,
         reply_author_relation=reply_author_relation,
-        raw_response={"niche": niche_data, "intent": intent_data},
-        prompt=f"{niche_prompt}\n\n---\n\n{intent_prompt}",
+        raw_response={"extraction": extraction_data, "niche": niche_data, "intent": intent_data},
+        prompt="\n\n---\n\n".join(prompt_parts),
         niche_prompt_version=NICHE_PROMPT_VERSION,
         intent_prompt_version=INTENT_PROMPT_VERSION,
     )

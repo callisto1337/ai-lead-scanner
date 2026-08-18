@@ -59,6 +59,22 @@ INTENT_OUTPUT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+EXTRACTION_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "topics": {
+            "type": "array",
+            "items": {
+                "type": "string",
+            },
+        },
+    },
+    "required": [
+        "topics",
+    ],
+    "additionalProperties": False,
+}
+
 
 def extract_json(raw: str) -> dict[str, Any]:
     raw = raw.strip()
