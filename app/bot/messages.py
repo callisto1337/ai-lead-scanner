@@ -111,9 +111,6 @@ def build_lead_message(
 💬 Сообщение:
 <pre>{html.escape(result.get("text", ""))}</pre>
 
-🤖 AI:
-{html.escape(result.get("description", ""))}
-
 👤 Пользователь:
 {user_link}
 
