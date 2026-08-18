@@ -36,6 +36,44 @@ def is_bare_link(text: str) -> bool:
     return not stripped
 
 
+# Слово, смешивающее латиницу и кириллицу (например, "fвs" вместо "фбс"
+# или "httрs" вместо "https") — обычный человек так не печатает,
+# это осознанный обход текстовых фильтров похожими по начертанию буквами.
+MIXED_SCRIPT_WORD_PATTERN = re.compile(
+    r"\b(?=\w*[a-zA-Z])(?=\w*[а-яёА-ЯЁ])\w{3,}\b"
+)
+
+
+def has_mixed_script_word(text: str) -> bool:
+    return bool(MIXED_SCRIPT_WORD_PATTERN.search(text))
+
+
+def word_stem_pattern(word: str) -> str:
+    # Русский язык склоняется — не требуем точного совпадения окончания.
+    # Короткие слова (коды, аббревиатуры) оставляем точными, чтобы не
+    # ловить случайные совпадения на 2-3 буквах.
+    if len(word) <= 3:
+        return re.escape(word)
+
+    if len(word) <= 5:
+        return re.escape(word[:-1]) + r"\w*"
+
+    return re.escape(word[:-2]) + r"\w*"
+
+
+def build_stopword_pattern(normalized_word: str) -> str | None:
+    words = re.findall(r"\w+", normalized_word)
+
+    if not words:
+        return None
+
+    stems = [word_stem_pattern(word) for word in words]
+
+    # Разделитель между словами фразы — любые не-словесные символы
+    # (пробел, точка, дефис и т.д.), не важно, как ввели в админке.
+    return r"(?<!\w)" + r"\W+".join(stems)
+
+
 def find_stopword(
     text: str,
     stopwords: Iterable[str],
@@ -45,7 +83,10 @@ def find_stopword(
     for word in stopwords:
         normalized_word = normalize(word)
 
-        pattern = r"(?<!\w)" + re.escape(normalized_word) + r"(?!\w)"
+        pattern = build_stopword_pattern(normalized_word)
+
+        if pattern is None:
+            continue
 
         if re.search(pattern, normalized_text):
             return word
@@ -86,6 +127,9 @@ def prefilter_message(
 
     if is_bare_link(clean_text):
         return reject("bare_link")
+
+    if has_mixed_script_word(clean_text):
+        return reject("mixed_script")
 
     stopword = has_stopword(clean_text)
 
