@@ -1,7 +1,7 @@
 import re
 from collections.abc import Iterable
 
-from app.db.dedup import exists_seen_message
+from app.db.dedup import exists_seen_message, save_seen_message
 from app.db.stopwords import get_active_stopwords
 from app.types import PrefilterResult
 from app.utils import normalize, get_hash
@@ -118,6 +118,8 @@ def prefilter_message(
 
     if is_duplicate(clean_text):
         return reject("duplicate")
+
+    save_seen_message(normalize(clean_text))
 
     if len(clean_text) > 1000:
         return reject("too_long")
