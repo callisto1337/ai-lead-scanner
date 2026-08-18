@@ -58,7 +58,13 @@ PHOENIX_ENABLED = env_flag("PHOENIX_ENABLED", True)
 
 MEMORY_MAX_DISTANCE = float(os.getenv("MEMORY_MAX_DISTANCE", "0.45"))
 NICHE_EXAMPLES_ENABLED = env_flag("NICHE_EXAMPLES_ENABLED", False)
-ENABLE_THINKING = env_flag("ENABLE_THINKING", False)
+
+# Если включено: niche_match/intent_match, отличные от "нет" в быстром
+# проходе (без thinking), переспрашиваются повторно с thinking для
+# уточнения. "нет" не переспрашивается — экономит основную часть трафика.
+THINKING_RETRY_ENABLED = env_flag("THINKING_RETRY_ENABLED", False)
+THINKING_MAX_TOKENS = int(os.getenv("THINKING_MAX_TOKENS", "2048"))
+THINKING_TIMEOUT_SECONDS = int(os.getenv("THINKING_TIMEOUT_SECONDS", "180"))
 
 USER_LEAD_COOLDOWN_MINUTES = int(
     os.getenv("USER_LEAD_COOLDOWN_MINUTES", "60")

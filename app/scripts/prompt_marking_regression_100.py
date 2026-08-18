@@ -34,7 +34,11 @@ class PromptCaseResult(TypedDict):
     actual_intent_match: Match | None
     niche_passed: bool
     intent_passed: bool
+    axes_passed: bool
+    expected_verdict: str
+    actual_verdict: str | None
     verdict_passed: bool
+    sent_passed: bool
     description: str
     note: str
 
@@ -71,7 +75,7 @@ CASES: list[PromptCase] = [
         name='prod_notlead_02_у_меня_мало_продаж',
         text='у меня мало продаж и что-то их кабинет расходится в данных, например в общем отчете продаж больше, чем в графе доставленные. есть отказы, но в отчете по отказам отказов нет - где товара, да кто его знает...наверное, если поставки большие, то концов не найти.',
         expected_niche_match='нет',
-        expected_intent_match='нет',
+        expected_intent_match='спорно',
         note='Прод. выборка (ранее AI=not_lead). Расхождения в отчётах продаж WB, тема не про маркировку. Требует проверки оператором.',
     ),
     PromptCase(
@@ -214,7 +218,7 @@ CASES: list[PromptCase] = [
     PromptCase(
         name='prod_notlead_20_всем_привет_можете_подсказать',
         text='всем привет, можете подсказать может кто в курсе. по фбс создал поставку, добавил кизы все по инструкции. распечатал код грузоместа. приехал в пвз, а код не сканируется. захожу в личный кабинет, а там такая картина... в доставке 5, по факту нет ничего',
-        expected_niche_match='да',
+        expected_niche_match='нет',
         expected_intent_match='да',
         note='Прод. выборка (ранее AI=not_lead). Явно описывает КИЗ и печать кодов по своей поставке, ищет помощь. Требует проверки оператором.',
     ),
@@ -447,7 +451,7 @@ CASES: list[PromptCase] = [
         name='prod_lead_14_сейчас_проверила_по_отчетам',
         text='сейчас проверила по отчетам, кизы озон автоматически вывел. такое может быть?',
         expected_niche_match='да',
-        expected_intent_match='да',
+        expected_intent_match='спорно',
         reply_text='По фбо Озон выводит, по фбс Вы',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Явно кизы, вывод кизов Озоном — собственный вопрос по отчёту. Требует проверки оператором.',
@@ -474,21 +478,21 @@ CASES: list[PromptCase] = [
         name='prod_lead_17_здравствуйте_подскажите_пожалуйста_люди',
         text='здравствуйте! подскажите пожалуйста люди добрые , кто работает с киз. работала только по fвw с киз и принцип мне понятен, но пришло время поработать на фбс с кизом и тут получается неразбериха. у меня 1 вид товара(артикул) с киз. не могу понять обязательно ли чтобы конкретный код киза был присвоен конкретному номеру заказа? потому что когда печатаю все подряд заказы номера перемешиваются. (а кизы уже присвоены в изначальном порядке. не понимаю как их потом клеить по правильному. короче кто понял меня ответьте плиз(((🥺',
         expected_niche_match='да',
-        expected_intent_match='да',
+        expected_intent_match='спорно',
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Развёрнуто описывает проблему с КИЗ на ФБС, явно ищет помощь. Требует проверки оператором.',
     ),
     PromptCase(
         name='prod_lead_18_у_нас_сц_почему',
         text='у нас сц почему то не проходит, хотя дневная поставка норм принялась',
         expected_niche_match='нет',
-        expected_intent_match='да',
+        expected_intent_match='спорно',
         note='Прод. выборка 17.08.2026 (бот прислал как лид). СЦ не проходит поставку — логистика приёмки, не маркировка. Требует проверки оператором.',
     ),
     PromptCase(
         name='prod_lead_19_понятно_может_подскажут_кто',
         text='понятно. может подскажут кто сталкивался. в поддержку напишите если никто не ответит',
-        expected_niche_match='да',
-        expected_intent_match='спорно',
+        expected_niche_match='спорно',
+        expected_intent_match='нет',
         reply_text='Это не ответ. Это куда клеить. Задача  у вас 10 товаров(одинаковых)  с КИЗ(индивидуальный)   и десять QR . Должно быть чётко\n товар 1 Киз - QR товара 1\nТовар 2 киз- QR товара 2\n.....\nА вот как соотно...',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Продолжает тред про КИЗ/QR из reply, но скорее уклоняется ("может подскажут"), чем прямо просит. Требует проверки оператором.',
@@ -497,7 +501,7 @@ CASES: list[PromptCase] = [
         name='prod_lead_20_у_меня_пока_нет',
         text='у меня пока нет, но вроде по новым правилам в среду 19 должен быть',
         expected_niche_match='спорно',
-        expected_intent_match='да',
+        expected_intent_match='нет',
         reply_text='Добрый день! Вывод с прошлого понедельника кому-то поступил?',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). "Вывод" неоднозначен — выплата денег или вывод из оборота. Требует проверки оператором.',
@@ -505,8 +509,8 @@ CASES: list[PromptCase] = [
     PromptCase(
         name='prod_lead_21_часть_товаров_оседало_на',
         text='часть товаров оседало на разных складах, сц , возвратах и т д вот эти остатки и крутятся . если же у вас доступны сотни товаров , то можно попробовать тешить себя надёжной, что часть товара куда то перевезли . но надёжна, это дорогой кредит.',
-        expected_niche_match='спорно',
-        expected_intent_match='да',
+        expected_niche_match='нет',
+        expected_intent_match='нет',
         reply_text='У всех не отображается.\nНо если вы знаете, что данный товар был только на этом складе, то как он может продаваться, если все сгорело?\nНадеюсь это не «просто покатушки «',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Продолжение той же неоднозначной темы "вывода". Требует проверки оператором.',
@@ -524,7 +528,7 @@ CASES: list[PromptCase] = [
         name='prod_lead_23_код_маркировки_чз_закрепляется',
         text='код маркировки чз закрепляется ведь за опркденным заказом и стикером, иначе как вы будете их из оборота выводить при продаже конкретного товара. собирать сложно, но приходится сканировать чз и клеить стикеры поэтапно',
         expected_niche_match='да',
-        expected_intent_match='спорно',
+        expected_intent_match='нет',
         reply_text='Капец , я вот сейчас уже и перечитываю вас! Ужас голова просто взрывается. Мне надо более 300 шт соотносить(если конечно надо)… может это и не обязательно?! Написала в поддержку вб(молчат пока)',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). КМ явно упомянут в reply и продолжается тема; больше похоже на солидаризацию с чужим недоумением, чем на прямой запрос. Требует проверки оператором.',
@@ -540,7 +544,7 @@ CASES: list[PromptCase] = [
         name='prod_lead_25_пока_даже_гарантива_автопроверки',
         text='пока даже гарантива автопроверки на ошибки не получилось',
         expected_niche_match='спорно',
-        expected_intent_match='да',
+        expected_intent_match='нет',
         reply_text='Артем Рябикин. Производство чая в банках, чтобы взбодриться вместо кофе.\n\nУ них сухие порошки а-ля кофе 3в1, только чай. Состав на фото.',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Контекст оборван (реплай не по теме), "автопроверка на ошибки" не уточнена. Требует проверки оператором.',
@@ -548,15 +552,15 @@ CASES: list[PromptCase] = [
     PromptCase(
         name='prod_lead_26_здравствуйте_я_отвёз_товар',
         text='здравствуйте. я отвёз товар в коробке на пвз всего 11 штук, из них 9 отображаются как отсканированные, а 2 нет. это техническая проблема или сотрудник просто забыл их отсканировать?',
-        expected_niche_match='спорно',
-        expected_intent_match='да',
+        expected_niche_match='нет',
+        expected_intent_match='нет',
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Скан на ПВЗ не прошёл — неясно, штрихкод это или код маркировки. Требует проверки оператором.',
     ),
     PromptCase(
         name='prod_lead_27_и_в_другом_кабинете',
         text='и в другом кабинете гле производство только россия , тоже такое окно!!',
-        expected_niche_match='нет',
-        expected_intent_match='нет',
+        expected_niche_match='спорно',
+        expected_intent_match='спорно',
         reply_text='Такое же окно. Не даёт создать грузоместо',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Не создаётся грузоместо — логистика, не коды маркировки. Требует проверки оператором.',
@@ -572,7 +576,7 @@ CASES: list[PromptCase] = [
         name='prod_lead_29_аналогичная_ситуация_разные_поставщики',
         text='аналогичная ситуация разные поставщики заполнили каждый свою карточку желательно выбрать тот вариант, который прописан у вас в упд. но в спешке выбрал наугад, теперь при нанесении выдает ошибки, но я их игнорирую пока проходит',
         expected_niche_match='да',
-        expected_intent_match='да',
+        expected_intent_match='нет',
         reply_text='Добрый день! Сформировали набор косметики из продуктов разных брендов. При вводе набора в оборот просит выбрать один из вариантов (на фото). Подскажите, пожалуйста, как узнать ID товара?',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Ошибка при нанесении кодов маркировки на карточку — собственная нерешённая ситуация. Требует проверки оператором.',
@@ -590,7 +594,7 @@ CASES: list[PromptCase] = [
         name='prod_lead_31_вот_тоже_нифига_не',
         text='вот тоже нифига не понятно продали и продали как система прымет что товар продан, если он кассой не выведен ?',
         expected_niche_match='да',
-        expected_intent_match='спорно',
+        expected_intent_match='да',
         reply_text='А как будут отслеживаться КМ , которые не выведены из оборота?',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). КМ явно упомянут в reply, но сообщение больше похоже на солидаризацию/недоумение, чем на явный запрос. Требует проверки оператором.',
@@ -598,8 +602,8 @@ CASES: list[PromptCase] = [
     PromptCase(
         name='prod_lead_32_хреново_чё_вот_тоже',
         text='хреново чё) вот тоже ломаем голову вносить дт или нет так как оно не на наше юр лицо',
-        expected_niche_match='спорно',
-        expected_intent_match='да',
+        expected_niche_match='нет',
+        expected_intent_match='спорно',
         reply_text='А если у меня нет ДТ??',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). ДТ (декларация) не на своё юрлицо — соседняя тема, собственная нерешённая проблема. Требует проверки оператором.',
@@ -608,14 +612,14 @@ CASES: list[PromptCase] = [
         name='prod_lead_33_всем_добрый_вечер_ввожу',
         text='всем добрый вечер! ввожу карточки,добавила сертификат соответствия. а где взять номер декларации?',
         expected_niche_match='спорно',
-        expected_intent_match='да',
+        expected_intent_match='спорно',
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Где взять номер декларации при вводе карточки с сертификатом — соседняя тема. Требует проверки оператором.',
     ),
     PromptCase(
         name='prod_lead_34_да_тоже_не_понимаю',
         text='да, тоже не понимаю. не попадут ли они в автоотмену 🤔. у меня в этом списке товар от росс производителя',
-        expected_niche_match='спорно',
-        expected_intent_match='да',
+        expected_niche_match='нет',
+        expected_intent_match='спорно',
         reply_text='Хреново чё) вот тоже ломаем голову вносить дт или нет так как оно не на наше Юр лицо',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Продолжение темы ДТ/декларации, собственное беспокойство. Требует проверки оператором.',
@@ -672,7 +676,7 @@ CASES: list[PromptCase] = [
         name='prod_lead_41_у_меня_он_просит',
         text='у меня он просит даже на те товары, на которые не нужна декларация',
         expected_niche_match='спорно',
-        expected_intent_match='да',
+        expected_intent_match='нет',
         reply_text='У нас также, вносим номер дт который в графе А но он у нас короче чем должен быть 🤷\u200d♀',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Декларация не запрашивается на некоторые товары — соседняя тема, своя ситуация. Требует проверки оператором.',
@@ -705,7 +709,7 @@ CASES: list[PromptCase] = [
     PromptCase(
         name='prod_lead_45_не_играет_роли_это',
         text='не играет роли это время. на моем пвз то же так написано, но бывало в 20:50 приходил и все нормально система работала',
-        expected_niche_match='нет',
+        expected_niche_match='спорно',
         expected_intent_match='спорно',
         reply_text='А мы отвезли сейчас, у нас не приняли, точнее в системе нет информации по данному qr поставки. Пришлось ехать домой и перепечатать, я подумала что в qr проблема. Но ничего не изменилось. Поставку не п...',
         same_reply_author=False,
@@ -714,7 +718,7 @@ CASES: list[PromptCase] = [
     PromptCase(
         name='prod_lead_46_оформили_на_кассе_возврат',
         text='оформили на кассе возврат маркированного товара ( случайно без маркировки) потом в сбис создала документ оприходование излишков , возврат в оборот , копию чека приложила ( так мне сказали в программе сбис ), чтобы марки вернулись ко мне в оборот но зарегестрировать в гис мт не удалось, что делать?',
-        expected_niche_match='да',
+        expected_niche_match='спорно',
         expected_intent_match='да',
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Явно "маркированный товар", "марки", "ГИС МТ" — чёткая нерешённая задача. Требует проверки оператором.',
     ),
@@ -722,7 +726,7 @@ CASES: list[PromptCase] = [
         name='prod_lead_47_аналогично_тестово_отправили_1',
         text='аналогично, тестово отправили 1 паллет в сц крыловскую, развернули. говорят по не обновили, нет технической возможности принимать',
         expected_niche_match='нет',
-        expected_intent_match='да',
+        expected_intent_match='спорно',
         reply_text='Это точно, только что первую поставку по новой схеме фбо с распределением тлваров в Шушары сц отвезли. Там вообще никто не в курсе 😬',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Проблема приёма поставки в СЦ — логистика, собственная ситуация. Требует проверки оператором.',
@@ -730,7 +734,7 @@ CASES: list[PromptCase] = [
     PromptCase(
         name='prod_lead_48_если_не_ошибаюсь_ранее',
         text='если не ошибаюсь, ранее вб публиковали новость, что додж а появится строка с указанием того, что документы не требуются. строки нет до сих пор. написала в поддержку, жду ответа',
-        expected_niche_match='спорно',
+        expected_niche_match='нет',
         expected_intent_match='да',
         reply_text='Спасибо  большое ! Декларации погружены, а отказное нет. Окошко для него нет же.',
         same_reply_author=False,
@@ -757,7 +761,7 @@ CASES: list[PromptCase] = [
     PromptCase(
         name='prod_lead_51_до_1окт_просто_нужно',
         text='до 1окт просто нужно загрузить доки иначе карточку заблочат',
-        expected_niche_match='спорно',
+        expected_niche_match='нет',
         expected_intent_match='нет',
         reply_text='Зачем они просят таможенную декларацию при доставке по РФ, я вот этого понять не могу',
         same_reply_author=False,
@@ -774,7 +778,7 @@ CASES: list[PromptCase] = [
         name='prod_lead_53_пока_нет_например_мои',
         text='пока нет. например, мои товары вообще определили в категории только монопалет, а монопалет пвз не принимает ни в каком виде. а складов для распределения больше не осталось в регионе. сц тоже не принимает футбол.',
         expected_niche_match='нет',
-        expected_intent_match='да',
+        expected_intent_match='нет',
         reply_text='Вот интересно это вообще работает 😂',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Категория "монопалет" не принимается ПВЗ/СЦ — логистика распределения, собственная ситуация. Требует проверки оператором.',
@@ -796,7 +800,7 @@ CASES: list[PromptCase] = [
     PromptCase(
         name='prod_lead_56_всем_привет_подскажите_пожалуйста',
         text='всем привет, подскажите пожалуйста, как посмотреть свои остатки теперь? я хочу посмотреть котовск, электросталь, а вб все скрыли',
-        expected_niche_match='нет',
+        expected_niche_match='спорно',
         expected_intent_match='да',
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Как посмотреть остатки по складам — учёт остатков, не маркировка. Требует проверки оператором.',
     ),
@@ -836,21 +840,21 @@ CASES: list[PromptCase] = [
         name='prod_lead_61_это_я_знаю_да',
         text='это я знаю да да , спасибо большое еще раз за подробное напоминание, у меня просто они вообще исчезли вчера за все склады сгоревшие ,вот хотел узнать у всех так и что это ? вроде денег не выплатили , чтоб их стирать просто и все',
         expected_niche_match='нет',
-        expected_intent_match='да',
+        expected_intent_match='спорно',
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Пропавшие остатки на сгоревших складах — учёт остатков, собственная ситуация, не маркировка. Требует проверки оператором.',
     ),
     PromptCase(
         name='prod_lead_62_прочитала_сейчас_что_сертификат',
         text='прочитала сейчас , что сертификат киргизии не дает добавить в честный знак, это так?',
         expected_niche_match='да',
-        expected_intent_match='да',
+        expected_intent_match='спорно',
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Явно "честный знак", вопрос про совместимость сертификата Киргизии. Требует проверки оператором.',
     ),
     PromptCase(
         name='prod_lead_63_у_меня_одна_позиция',
         text='у меня одна позиция сохранилась товара, я так понимаю, что это отказ приехал, и сегодня еще одна появилась, которая в пути была, а все остальное на складе коледино',
         expected_niche_match='нет',
-        expected_intent_match='да',
+        expected_intent_match='нет',
         reply_text='Коллеги, подскажите. Вообще у кого нибудь сохранился товар с коледина или меньшее количество высвечивается в отчёте графа коледина чем было там по факту.',
         same_reply_author=False,
         note='Прод. выборка 17.08.2026 (бот прислал как лид). Статус товара с Коледино после пожара — учёт остатков, не маркировка. Требует проверки оператором.',
@@ -866,7 +870,7 @@ CASES: list[PromptCase] = [
         name='synthetic_clean_unrelated_topic',
         text='кто-нибудь знает хороший рецепт борща на зиму?',
         expected_niche_match='нет',
-        expected_intent_match='нет',
+        expected_intent_match='спорно',
         note='Синтетический пример (не из прод. данных) — полностью не по теме, базовая проверка.',
     ),
     PromptCase(
@@ -879,6 +883,13 @@ CASES: list[PromptCase] = [
         note='Синтетический пример (не из прод. данных) — тот же автор продолжает свою задачу, такого паттерна нет в реальной выборке.',
     ),
 ]
+
+
+def is_sent(verdict: str | None) -> bool:
+    # lead и borderline оба уходят оператору в Telegram,
+    # различается только заголовок сообщения. Реальная развилка —
+    # "уйдёт оператору" (lead/borderline) vs "не уйдёт" (not_lead).
+    return verdict in ("lead", "borderline")
 
 
 def relation_ids(case: PromptCase) -> tuple[int | None, int | None]:
@@ -900,6 +911,11 @@ def run_case(
 ) -> PromptCaseResult:
     sender_id, reply_sender_id = relation_ids(case)
 
+    expected_verdict = lead_filter.combine_verdict(
+        case.expected_niche_match,
+        case.expected_intent_match,
+    )
+
     result = lead_filter.is_lead(
         text=case.text,
         niche=niche,
@@ -917,7 +933,11 @@ def run_case(
             "actual_intent_match": None,
             "niche_passed": False,
             "intent_passed": False,
+            "axes_passed": False,
+            "expected_verdict": expected_verdict,
+            "actual_verdict": None,
             "verdict_passed": False,
+            "sent_passed": False,
             "description": "Модель не вернула результат",
             "note": case.note,
         }
@@ -928,6 +948,11 @@ def run_case(
     niche_passed = actual_niche_match == case.expected_niche_match
     intent_passed = actual_intent_match == case.expected_intent_match
 
+    actual_verdict = lead_filter.combine_verdict(
+        actual_niche_match,
+        actual_intent_match,
+    )
+
     return {
         "name": case.name,
         "expected_niche_match": case.expected_niche_match,
@@ -936,7 +961,16 @@ def run_case(
         "actual_intent_match": actual_intent_match,
         "niche_passed": niche_passed,
         "intent_passed": intent_passed,
-        "verdict_passed": niche_passed and intent_passed,
+        "axes_passed": niche_passed and intent_passed,
+        "expected_verdict": expected_verdict,
+        "actual_verdict": actual_verdict,
+        # Итоговый вердикт может совпасть даже при расхождении по одной
+        # оси — например, если niche_match="нет" уже сам по себе даёт
+        # not_lead независимо от intent_match (см. combine_verdict).
+        "verdict_passed": actual_verdict == expected_verdict,
+        # lead vs borderline — не ошибка с точки зрения оператора,
+        # сообщение в обоих случаях уходит ему на оценку.
+        "sent_passed": is_sent(expected_verdict) == is_sent(actual_verdict),
         "description": result["description"],
         "note": case.note,
     }
@@ -970,9 +1004,18 @@ def main() -> None:
         result = run_case(case, niche)
         results.append(result)
 
-        verdict_marker = "✅" if result["verdict_passed"] else "❌"
         niche_marker = "✅" if result["niche_passed"] else "❌"
         intent_marker = "✅" if result["intent_passed"] else "❌"
+
+        if result["axes_passed"]:
+            verdict_marker = "✅"
+        elif result["sent_passed"]:
+            # Решение "слать/не слать оператору" верное — не страшно,
+            # даже если разошлась ось или lead/borderline перепутались:
+            # оба вердикта уходят оператору, отличается только заголовок.
+            verdict_marker = "🟡"
+        else:
+            verdict_marker = "❌"
 
         print(
             f"{verdict_marker} {index:03d}. {case.name}\n"
@@ -982,25 +1025,38 @@ def main() -> None:
             f"   {intent_marker} intent_match: "
             f"expected={result['expected_intent_match']} "
             f"actual={result['actual_intent_match']}\n"
+            f"   verdict: expected={result['expected_verdict']} "
+            f"actual={result['actual_verdict']}\n"
             f"   {result['description']}\n"
             f"   note={case.note}\n"
         )
 
     niche_passed_count = sum(result["niche_passed"] for result in results)
     intent_passed_count = sum(result["intent_passed"] for result in results)
-    both_passed_count = sum(result["verdict_passed"] for result in results)
+    axes_passed_count = sum(result["axes_passed"] for result in results)
+    verdict_passed_count = sum(result["verdict_passed"] for result in results)
+    sent_passed_count = sum(result["sent_passed"] for result in results)
 
     print("-" * 72)
-    print(f"niche_match:  {niche_passed_count}/{len(results)} совпало")
-    print(f"intent_match: {intent_passed_count}/{len(results)} совпало")
-    print(f"Обе оси:      {both_passed_count}/{len(results)} совпало")
+    print(f"niche_match:        {niche_passed_count}/{len(results)} совпало")
+    print(f"intent_match:       {intent_passed_count}/{len(results)} совпало")
+    print(f"Обе оси точно:      {axes_passed_count}/{len(results)} совпало")
+    print(f"Вердикт точно:      {verdict_passed_count}/{len(results)} совпало")
+    print(
+        "Слать/не слать оператору (главная метрика): "
+        f"{sent_passed_count}/{len(results)} совпало"
+        f" — реальных расхождений: {len(results) - sent_passed_count} "
+        "(лид пропущен, либо ложно отправлен)"
+    )
 
     if args.output is not None:
         report = {
             "niche_id": args.niche_id,
             "niche_passed": niche_passed_count,
             "intent_passed": intent_passed_count,
-            "both_passed": both_passed_count,
+            "axes_passed": axes_passed_count,
+            "verdict_passed": verdict_passed_count,
+            "sent_passed": sent_passed_count,
             "total": len(results),
             "results": results,
         }

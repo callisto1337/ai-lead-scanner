@@ -15,7 +15,7 @@ import requests
 
 from app.metrics import ai_request_duration_seconds, ai_errors
 from app.tracing_client import get_tracer
-from app.settings import AI_TIMEOUT_SECONDS, ENABLE_THINKING, VLLM_API_KEY, VLLM_URL, MODEL_NAME
+from app.settings import AI_TIMEOUT_SECONDS, VLLM_API_KEY, VLLM_URL, MODEL_NAME
 
 
 logger = logging.getLogger(__name__)
@@ -91,6 +91,9 @@ def call_model(
     span_name: str,
     metadata: dict[str, str] | None = None,
     tags: list[str] | None = None,
+    enable_thinking: bool = False,
+    max_tokens: int = 256,
+    timeout: int | None = None,
 ) -> dict[str, Any] | None:
     tracer = get_tracer()
     payload: dict[str, Any] = {
@@ -103,9 +106,9 @@ def call_model(
         ],
         "stream": False,
         "temperature": 0,
-        "max_tokens": 2048 if ENABLE_THINKING else 256,
+        "max_tokens": max_tokens,
         "chat_template_kwargs": {
-            "enable_thinking": ENABLE_THINKING,
+            "enable_thinking": enable_thinking,
         },
         "response_format": {
             "type": "json_schema",
@@ -119,6 +122,8 @@ def call_model(
     headers = (
         {"Authorization": f"Bearer {VLLM_API_KEY}"} if VLLM_API_KEY else {}
     )
+
+    request_timeout = timeout if timeout is not None else AI_TIMEOUT_SECONDS
 
     started_at = perf_counter()
 
@@ -155,7 +160,7 @@ def call_model(
                         f"{VLLM_URL}/chat/completions",
                         json=payload,
                         headers=headers,
-                        timeout=AI_TIMEOUT_SECONDS,
+                        timeout=request_timeout,
                     )
 
                     if not response.ok:

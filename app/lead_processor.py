@@ -5,7 +5,7 @@ from app.metrics import (
     ai_request,
     lead_detected,
     message_received,
-    sporno_detected,
+    borderline_detected,
 )
 from app.types import (
     MessageId,
@@ -62,8 +62,8 @@ def process_message(
 
     if ai_result["verdict"] == "lead":
         lead_detected.labels(**labels).inc()
-    elif ai_result["verdict"] == "sporno":
-        sporno_detected.labels(**labels).inc()
+    elif ai_result["verdict"] == "borderline":
+        borderline_detected.labels(**labels).inc()
 
     result: ProcessMessageResult = {
         "lead_result_id": lead_result["id"],

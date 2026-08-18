@@ -21,6 +21,21 @@ def accept() -> PrefilterResult:
     }
 
 
+# "p"/"e" учитывают частую обфускацию ссылок похожими кириллическими
+# буквами (р, е) — см. config/char_replacements.txt.
+BARE_LINK_PATTERN = re.compile(
+    r"(?:https?|httр)s?://\S+|t\.m[eе]/\S+|www\.\S+",
+    re.IGNORECASE,
+)
+
+
+def is_bare_link(text: str) -> bool:
+    stripped = BARE_LINK_PATTERN.sub("", text)
+    stripped = re.sub(r"[\s\W_]+", "", stripped)
+
+    return not stripped
+
+
 def find_stopword(
     text: str,
     stopwords: Iterable[str],
@@ -68,6 +83,9 @@ def prefilter_message(
 
     if len(clean_text) < 30:
         return reject("too_short")
+
+    if is_bare_link(clean_text):
+        return reject("bare_link")
 
     stopword = has_stopword(clean_text)
 

@@ -18,9 +18,9 @@ lead_detected = Counter(
     ["company_id", "niche_id"],
 )
 
-sporno_detected = Counter(
-    "lead_scanner_sporno_detected_total",
-    "Total AI detected borderline (sporno) leads",
+borderline_detected = Counter(
+    "lead_scanner_borderline_detected_total",
+    "Total AI detected borderline leads",
     ["company_id", "niche_id"],
 )
 
@@ -61,6 +61,12 @@ ai_errors = Counter(
     "lead_scanner_ai_errors_total",
     "Ошибки при обращении к модели",
     ["reason"],
+)
+
+thinking_retry_total = Counter(
+    "lead_scanner_thinking_retry_total",
+    "Количество повторных запросов с enable_thinking для неоднозначных осей",
+    ["axis"],
 )
 
 message_queue_size = Gauge(

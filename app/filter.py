@@ -1,14 +1,19 @@
 import concurrent.futures
 from typing import Any
 
-from app.metrics import ai_errors
+from app.metrics import ai_errors, thinking_retry_total
 from app.model_client import (
     INTENT_OUTPUT_SCHEMA,
     NICHE_OUTPUT_SCHEMA,
     call_model,
 )
 from app.retrieval import find_similar_messages
-from app.settings import NICHE_EXAMPLES_ENABLED
+from app.settings import (
+    NICHE_EXAMPLES_ENABLED,
+    THINKING_MAX_TOKENS,
+    THINKING_RETRY_ENABLED,
+    THINKING_TIMEOUT_SECONDS,
+)
 from app.types import IsLeadResult, NicheId, NicheWithConfig
 
 NICHE_PROMPT_VERSION = "niche_v1"
@@ -165,11 +170,18 @@ niche_match показывает, относится ли тема или зад
   (тематические подсказки, конкретные названия систем и процессов
   из описания услуг), а не на обычные слова, которые используются
   и в других системах (например, "кабинет", "остатки", "склад", "коды",
-  "отчёт" сами по себе, без явной привязки к теме ниши);
+  "отчёт", "вывод", "автоматизация" сами по себе, без явной привязки
+  к теме ниши);
 - если такое общее слово встречается без явной привязки именно к теме
   ниши — это не даёт "да", максимум "спорно"; а если по контексту ясно,
   что речь о другой системе — "нет", даже при формальном совпадении
   отдельных слов;
+- совпадение слова сообщения с формулировкой из описания услуг
+  само по себе не является привязкой к теме — привязка должна быть
+  явной в самом сообщении CURRENT_USER, а не выводиться из списка услуг;
+- если ниша упомянута только как один из нескольких несвязанных
+  пунктов в общем перечне разнородных услуг, а не как основная тема
+  сообщения — максимум "спорно";
 - "да" допустимо только тогда, когда сообщение CURRENT_USER
   содержит конкретную тему, объект, процесс или услугу,
   которые можно напрямую сопоставить с услугами ниши;
@@ -204,7 +216,10 @@ niche_match показывает, относится ли тема или зад
   объясняющее связь сообщения CURRENT_USER с нишей;
 - не добавляй текст до или после JSON;
 - description не должно утверждать наличие темы или задачи,
-  которых нет в сообщении CURRENT_USER или сообщении REPLY_USER.
+  которых нет в сообщении CURRENT_USER или сообщении REPLY_USER;
+- description не может называть конкретную систему, кабинет
+  или процесс из описания ниши, если это название не встречается
+  явно в самом сообщении CURRENT_USER или REPLY_USER.
 """.strip()
 
 
@@ -349,7 +364,9 @@ INTENT_MATCH:
   только если относится к собственной задаче CURRENT_USER;
 - CURRENT_USER необязательно прямо искать платную услугу или исполнителя;
 - описание ошибки или собственной проблемы CURRENT_USER
-  может получить "да";
+  может получить "да", только если из сообщения понятно, что нужно
+  решение (вопрос, просьба, ожидание помощи); простая констатация
+  факта или смирение с ситуацией без запроса — максимум "спорно";
 - вопрос о стоимости является признаком явного намерения,
   если стоимость интересует CURRENT_USER;
 - предложение собственных услуг не является потребностью CURRENT_USER;
@@ -526,6 +543,9 @@ def _call_niche_model(
     prompt: str,
     metadata: dict[str, str],
     tags: list[str],
+    enable_thinking: bool = False,
+    max_tokens: int = 256,
+    timeout: int | None = None,
 ) -> dict[str, Any] | None:
     return call_model(
         prompt,
@@ -534,6 +554,9 @@ def _call_niche_model(
         span_name="niche-classification",
         metadata=metadata,
         tags=tags,
+        enable_thinking=enable_thinking,
+        max_tokens=max_tokens,
+        timeout=timeout,
     )
 
 
@@ -541,6 +564,9 @@ def _call_intent_model(
     prompt: str,
     metadata: dict[str, str],
     tags: list[str],
+    enable_thinking: bool = False,
+    max_tokens: int = 256,
+    timeout: int | None = None,
 ) -> dict[str, Any] | None:
     return call_model(
         prompt,
@@ -549,6 +575,9 @@ def _call_intent_model(
         span_name="intent-classification",
         metadata=metadata,
         tags=tags,
+        enable_thinking=enable_thinking,
+        max_tokens=max_tokens,
+        timeout=timeout,
     )
 
 
@@ -621,6 +650,65 @@ def is_lead(
         )
 
         return None
+
+    if THINKING_RETRY_ENABLED:
+        retry_niche = niche_match != "нет"
+        retry_intent = intent_match != "нет"
+
+        if retry_niche or retry_intent:
+            if retry_niche:
+                thinking_retry_total.labels(axis="niche").inc()
+
+            if retry_intent:
+                thinking_retry_total.labels(axis="intent").inc()
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                niche_retry_future = (
+                    executor.submit(
+                        _call_niche_model,
+                        niche_prompt,
+                        niche_metadata,
+                        niche_tags,
+                        enable_thinking=True,
+                        max_tokens=THINKING_MAX_TOKENS,
+                        timeout=THINKING_TIMEOUT_SECONDS,
+                    )
+                    if retry_niche
+                    else None
+                )
+                intent_retry_future = (
+                    executor.submit(
+                        _call_intent_model,
+                        intent_prompt,
+                        intent_metadata,
+                        intent_tags,
+                        enable_thinking=True,
+                        max_tokens=THINKING_MAX_TOKENS,
+                        timeout=THINKING_TIMEOUT_SECONDS,
+                    )
+                    if retry_intent
+                    else None
+                )
+
+                if niche_retry_future is not None:
+                    retried_niche_data = niche_retry_future.result()
+
+                    if (
+                        retried_niche_data
+                        and retried_niche_data.get("niche_match") in MATCH_VALUES
+                    ):
+                        niche_data = retried_niche_data
+                        niche_match = retried_niche_data["niche_match"]
+
+                if intent_retry_future is not None:
+                    retried_intent_data = intent_retry_future.result()
+
+                    if (
+                        retried_intent_data
+                        and retried_intent_data.get("intent_match") in MATCH_VALUES
+                    ):
+                        intent_data = retried_intent_data
+                        intent_match = retried_intent_data["intent_match"]
 
     verdict = combine_verdict(niche_match, intent_match)
 
