@@ -45,7 +45,11 @@ MIXED_SCRIPT_WORD_PATTERN = re.compile(
 
 
 def has_mixed_script_word(text: str) -> bool:
-    return bool(MIXED_SCRIPT_WORD_PATTERN.search(text))
+    # Гомоглифы внутри самой ссылки (обычный способ обхода бан-фильтров на
+    # ссылки) не должны топить остальное осмысленное сообщение целиком.
+    text_without_links = BARE_LINK_PATTERN.sub("", text)
+
+    return bool(MIXED_SCRIPT_WORD_PATTERN.search(text_without_links))
 
 
 def word_stem_pattern(word: str) -> str:
