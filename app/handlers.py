@@ -50,7 +50,10 @@ async def handle_new_message(
 
     sender = await event.get_sender()
 
-    if sender is not None and sender.bot:
+    # get_sender() может вернуть Channel (пост от имени канала,
+    # анонимный админ) вместо User — у Channel нет .bot/.first_name/
+    # .last_name, поэтому дальше везде читаем через getattr().
+    if sender is not None and getattr(sender, "bot", False):
         return
 
     sender_id = (
@@ -64,30 +67,27 @@ async def handle_new_message(
     sender_data: TgUser | None = None
 
     if sender is not None:
+        sender_first_name = getattr(sender, "first_name", None)
+        sender_last_name = getattr(sender, "last_name", None)
+
         sender_name = " ".join(
             part
             for part in (
-                sender.first_name,
-                sender.last_name,
+                sender_first_name,
+                sender_last_name,
             )
             if part is not None
-        ).strip() or None
+        ).strip() or getattr(sender, "title", None)
 
-        sender_username = sender.username
+        sender_username = getattr(sender, "username", None)
 
         sender_data = TgUser(
             id=TgUserId(sender.id),
-            bot=sender.bot,
-            first_name=sender.first_name,
-            last_name=sender.last_name,
-            username=sender.username,
+            bot=getattr(sender, "bot", False),
+            first_name=sender_first_name,
+            last_name=sender_last_name,
+            username=sender_username,
         )
-
-    sender_username: str | None = (
-        sender.username
-        if sender is not None
-        else None
-    )
 
     if sender_id is not None and is_blacklisted(sender_id):
         print("⛔ BLACKLIST USER:", sender_id, flush=True)
