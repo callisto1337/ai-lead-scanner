@@ -9,6 +9,7 @@ from app.model_client import (
     call_model,
 )
 from app.settings import (
+    INTENT_BACKEND,
     THINKING_MAX_TOKENS,
     THINKING_RETRY_ENABLED,
     THINKING_TIMEOUT_SECONDS,
@@ -17,9 +18,11 @@ from app.types import IsLeadResult, NicheWithConfig
 
 EXTRACTION_PROMPT_VERSION = "extraction_v1"
 NICHE_PROMPT_VERSION = "niche_v2"
-INTENT_PROMPT_VERSION = "intent_v1"
+INTENT_PROMPT_VERSION = "intent_v2"
 
 MATCH_VALUES = {"да", "нет", "спорно"}
+
+NicheOutcome = tuple[str, dict[str, Any], str | None]
 
 
 def format_list(items: list[str]) -> str:
@@ -325,6 +328,11 @@ INTENT_MATCH:
 - вопрос о выборе способа, порядке действий, правилах, сроках,
   последствиях, инструкции или значении термина
   может быть запросом на консультацию;
+- вопрос в безличной форме или от первого лица множественного числа
+  («можем ли мы...», «будет ли всегда указано...», «как правильно
+  поступить...») выражает собственную потребность CURRENT_USER так же,
+  как формулировка от первого лица единственного числа — отсутствие
+  «я»/«мне» само по себе не повод занижать intent_match до "спорно";
 - уточняющий вопрос может получить "да",
   только если относится к собственной задаче CURRENT_USER;
 - CURRENT_USER необязательно прямо искать платную услугу или исполнителя;
@@ -334,7 +342,15 @@ INTENT_MATCH:
   факта или смирение с ситуацией без запроса — максимум "спорно";
 - вопрос о стоимости является признаком явного намерения,
   если стоимость интересует CURRENT_USER;
-- предложение собственных услуг не является потребностью CURRENT_USER;
+- сообщение, состоящее из повелительных конструкций, адресованных
+  читателю («создайте», «вставьте», «зайдите», «нажмите» и т.п.),
+  без первого лица («мне нужно», «у меня») — это инструкция или
+  ответ на чей-то вопрос, а не собственная задача CURRENT_USER,
+  даже если в диалоге нет явного REPLY_USER;
+- предложение собственных услуг не является потребностью CURRENT_USER,
+  включая формулировки вида «ищу клиентов/предпринимателей/партнёров,
+  которые хотят [результат от моей услуги]» — это реклама своих услуг
+  под видом поиска, а не запрос помощи для себя;
 - поиск сотрудника в штат не является запросом услуги;
 - новости и объявления без вопроса или нерешённой задачи — "нет";
 - нельзя считать любое сообщение с вопросительным знаком
@@ -495,6 +511,29 @@ def build_tracing_context(
     return metadata, tags
 
 
+def build_shared_tracing_context(
+    prompt_version: str,
+    niches: list[NicheWithConfig],
+) -> tuple[dict[str, str], list[str]]:
+    # extraction/intent теперь считаются один раз на сообщение и
+    # переиспользуются между несколькими нишами — привязать метаданные
+    # к одной нише некорректно, поэтому перечисляем все, для кого
+    # результат актуален.
+    metadata: dict[str, str] = {
+        "promptversion": prompt_version,
+        "niche_count": str(len(niches)),
+    }
+
+    tags: list[str] = []
+
+    for niche in niches:
+        company_name = str(niche.get("company_name") or "Не указана").strip() or "Не указана"
+        niche_name = str(niche.get("name") or "Не указана").strip() or "Не указана"
+        tags.append(f"niche:{company_name} / {niche_name}"[:200])
+
+    return metadata, tags
+
+
 def combine_verdict(niche_match: str, intent_match: str) -> str:
     if niche_match == "нет" or intent_match == "нет":
         return "not_lead"
@@ -552,6 +591,24 @@ def _call_intent_model(
     max_tokens: int = 256,
     timeout: int | None = None,
 ) -> dict[str, Any] | None:
+    # Гибридная схема: intent может уходить на более сильную внешнюю
+    # модель (см. app/settings.INTENT_BACKEND), а extraction/niche
+    # остаются на локальной — та ось, где нюанс важнее объёма звонков.
+    if INTENT_BACKEND == "yandex":
+        from app.yandex_client import call_model_yandex
+
+        return call_model_yandex(
+            prompt,
+            output_schema=INTENT_OUTPUT_SCHEMA,
+            schema_name="intent-classification",
+            span_name="intent-classification",
+            metadata=metadata,
+            tags=tags,
+            enable_thinking=enable_thinking,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
+
     return call_model(
         prompt,
         output_schema=INTENT_OUTPUT_SCHEMA,
@@ -771,3 +828,254 @@ def is_lead(
         niche_prompt_version=NICHE_PROMPT_VERSION,
         intent_prompt_version=INTENT_PROMPT_VERSION,
     )
+
+
+def classify_message_for_niches(
+    text: str,
+    niches: list[NicheWithConfig],
+    sender_id: int | None = None,
+    reply_text: str | None = None,
+    reply_sender_id: int | None = None,
+) -> dict[int, IsLeadResult | None]:
+    """
+    Продовый путь классификации ОДНОГО сообщения сразу для НЕСКОЛЬКИХ
+    ниш (message_worker.py вызывает это вместо is_lead() в цикле).
+
+    В отличие от is_lead():
+    - extraction и intent считаются один раз на сообщение и
+      переиспользуются между всеми переданными нишами (extraction и
+      intent от ниши не зависят);
+    - intent вообще не вызывается, если ни у одной ниши niche_match
+      не оказался отличным от "нет" — combine_verdict всё равно даёт
+      not_lead независимо от intent, платить за такой вызов не за что.
+
+    niches должен содержать только ниши, уже прошедшие свои
+    независимые от классификации проверки (blacklist конкретной
+    ниши, cooldown) — это ответственность вызывающего кода.
+
+    Возвращает {niche_id: IsLeadResult | None}; None — там, где вызов
+    модели не удался (интерпретировать как "результата нет", как
+    раньше делал is_lead(), вернувший None).
+    """
+    if not niches:
+        return {}
+
+    if not reply_text:
+        reply_author_relation = "reply отсутствует"
+    elif sender_id is None or reply_sender_id is None:
+        reply_author_relation = "неизвестно"
+    elif sender_id == reply_sender_id:
+        reply_author_relation = "тот же автор"
+    else:
+        reply_author_relation = "другой автор"
+
+    results: dict[int, IsLeadResult | None] = {int(niche["id"]): None for niche in niches}
+
+    extraction_prompt = build_extraction_prompt(
+        text=text,
+        reply_text=reply_text,
+        reply_author_relation=reply_author_relation,
+    )
+    extraction_metadata, extraction_tags = build_shared_tracing_context(
+        EXTRACTION_PROMPT_VERSION, niches
+    )
+    extraction_data = _call_extraction_model(extraction_prompt, extraction_metadata, extraction_tags)
+
+    if not extraction_data:
+        print("❌ classify_message_for_niches: extraction call_model returned None", flush=True)
+        print(f"TEXT: {text}", flush=True)
+
+        return results
+
+    raw_topics = extraction_data.get("topics")
+    valid_topics = False
+
+    if isinstance(raw_topics, list):
+        candidate_topics = cast(list[Any], raw_topics)
+        valid_topics = all(isinstance(item, str) for item in candidate_topics)
+
+    if not valid_topics:
+        ai_errors.labels(reason="invalid_extraction").inc()
+        print(f"❌ Invalid extraction topics: {raw_topics!r}", flush=True)
+
+        return results
+
+    topics = cast(list[str], raw_topics)
+
+    # niche-match: своя тема на каждую нишу (параллельно), либо
+    # синтетический "нет" без вызова модели, если тем нет вообще.
+    niche_outcomes: dict[int, NicheOutcome] = {}
+
+    if not topics:
+        for niche in niches:
+            extraction_empty_total.labels(
+                company_id=str(niche["company_id"]),
+                niche_id=str(niche["id"]),
+            ).inc()
+
+            niche_outcomes[int(niche["id"])] = (
+                "нет",
+                {
+                    "niche_match": "нет",
+                    "description": "Конкретная тема в сообщении не выявлена.",
+                },
+                None,
+            )
+    else:
+        def run_one_niche(niche: NicheWithConfig) -> tuple[int, str | None, dict[str, Any], str]:
+            niche_metadata, niche_tags = build_tracing_context(niche, NICHE_PROMPT_VERSION)
+            niche_prompt = build_niche_prompt(topics=topics, niche=niche)
+            niche_data_result = _call_niche_model(niche_prompt, niche_metadata, niche_tags)
+
+            if not niche_data_result:
+                return int(niche["id"]), None, {}, niche_prompt
+
+            niche_match = niche_data_result.get("niche_match")
+
+            if niche_match not in MATCH_VALUES:
+                ai_errors.labels(reason="invalid_match").inc()
+
+                return int(niche["id"]), None, {}, niche_prompt
+
+            niche_data = niche_data_result
+
+            if THINKING_RETRY_ENABLED and niche_match != "нет":
+                thinking_retry_total.labels(axis="niche").inc()
+
+                retried = _call_niche_model(
+                    niche_prompt,
+                    niche_metadata,
+                    niche_tags,
+                    enable_thinking=True,
+                    max_tokens=THINKING_MAX_TOKENS,
+                    timeout=THINKING_TIMEOUT_SECONDS,
+                )
+
+                if retried and retried.get("niche_match") in MATCH_VALUES:
+                    niche_data = retried
+                    niche_match = retried["niche_match"]
+
+            return int(niche["id"]), niche_match, niche_data, niche_prompt
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(len(niches), 1)) as executor:
+            futures = [executor.submit(run_one_niche, niche) for niche in niches]
+
+            for future in concurrent.futures.as_completed(futures):
+                niche_id, niche_match, niche_data, niche_prompt = future.result()
+
+                if niche_match is None:
+                    print(
+                        f"❌ classify_message_for_niches: niche-match не удался, niche_id={niche_id}",
+                        flush=True,
+                    )
+                    continue
+
+                niche_outcomes[niche_id] = (niche_match, niche_data, niche_prompt)
+
+    # Рычаг: intent считаем один раз, и только если хотя бы одна из
+    # переданных ниш получила niche_match != "нет".
+    needs_intent = any(match != "нет" for match, _, _ in niche_outcomes.values())
+
+    intent_prompt: str | None = None
+    intent_match: str | None = None
+    intent_data: dict[str, Any] = {}
+
+    if needs_intent:
+        intent_prompt = build_intent_prompt(
+            text=text,
+            reply_text=reply_text,
+            reply_author_relation=reply_author_relation,
+        )
+        intent_metadata, intent_tags = build_shared_tracing_context(INTENT_PROMPT_VERSION, niches)
+        intent_data_result = _call_intent_model(intent_prompt, intent_metadata, intent_tags)
+
+        if intent_data_result and intent_data_result.get("intent_match") in MATCH_VALUES:
+            intent_match = intent_data_result["intent_match"]
+            intent_data = intent_data_result
+
+            # Ретрай с thinking есть смысл только для локальной модели —
+            # у внешнего (Yandex) бэкенда это не reasoning-модель, и
+            # thinking-параметр там не используется.
+            if (
+                THINKING_RETRY_ENABLED
+                and INTENT_BACKEND == "local"
+                and intent_match != "нет"
+            ):
+                thinking_retry_total.labels(axis="intent").inc()
+
+                retried = _call_intent_model(
+                    intent_prompt,
+                    intent_metadata,
+                    intent_tags,
+                    enable_thinking=True,
+                    max_tokens=THINKING_MAX_TOKENS,
+                    timeout=THINKING_TIMEOUT_SECONDS,
+                )
+
+                if retried and retried.get("intent_match") in MATCH_VALUES:
+                    intent_data = retried
+                    intent_match = retried["intent_match"]
+        else:
+            print("❌ classify_message_for_niches: intent call_model не удался", flush=True)
+
+    for niche in niches:
+        niche_id = int(niche["id"])
+
+        if niche_id not in niche_outcomes:
+            continue
+
+        niche_match, niche_data, niche_prompt = niche_outcomes[niche_id]
+
+        if niche_match != "нет" and intent_match is None:
+            # Этой нише был нужен реальный intent, но вызов не удался —
+            # не отдаём недостоверный результат.
+            continue
+
+        effective_intent_match: str
+        effective_intent_data: dict[str, Any]
+
+        if niche_match != "нет":
+            assert intent_match is not None
+            effective_intent_match = intent_match
+            effective_intent_data = intent_data
+        else:
+            effective_intent_match = "нет"
+            effective_intent_data = {}
+
+        verdict = combine_verdict(niche_match, effective_intent_match)
+
+        description = " ".join(
+            part
+            for part in (
+                niche_data.get("description"),
+                effective_intent_data.get("description"),
+            )
+            if part
+        )
+
+        prompt_parts = [extraction_prompt]
+
+        if niche_prompt is not None:
+            prompt_parts.append(niche_prompt)
+
+        if intent_prompt is not None:
+            prompt_parts.append(intent_prompt)
+
+        results[niche_id] = IsLeadResult(
+            lead=verdict != "not_lead",
+            verdict=verdict,
+            niche_match=niche_match,
+            intent_match=effective_intent_match,
+            description=description,
+            reply_author_relation=reply_author_relation,
+            raw_response={
+                "extraction": extraction_data,
+                "niche": niche_data,
+                "intent": effective_intent_data,
+            },
+            prompt="\n\n---\n\n".join(prompt_parts),
+            niche_prompt_version=NICHE_PROMPT_VERSION,
+            intent_prompt_version=INTENT_PROMPT_VERSION,
+        )
+
+    return results

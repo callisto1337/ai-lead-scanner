@@ -34,7 +34,7 @@ def get_daily_summary_stats(
                 ) AS leads_found,
 
                 COUNT(lr.id) FILTER (
-                    WHERE lr.verdict = 'sporno'
+                    WHERE lr.verdict = 'borderline'
                 ) AS borderline_found,
 
                 COUNT(lr.id) FILTER (

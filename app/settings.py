@@ -49,6 +49,18 @@ VLLM_API_KEY = os.getenv("VLLM_API_KEY", "")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen3-14B-AWQ")
 AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "90"))
 
+# Гибридная схема: extraction и niche-match остаются на локальной модели
+# (VLLM_URL/MODEL_NAME выше, бесплатно), а intent — на более сильной
+# модели, где заметнее выигрыш в качестве. "local" — вся классификация
+# на VLLM_URL как раньше; "yandex" — intent уходит на Yandex AI Studio.
+INTENT_BACKEND = os.getenv("INTENT_BACKEND", "local")
+YANDEX_API_KEY = os.getenv("YANDEX_API_KEY", "")
+YANDEX_FOLDER_ID = os.getenv("YANDEX_FOLDER_ID", "")
+YANDEX_INTENT_MODEL = os.getenv("YANDEX_INTENT_MODEL", "aliceai-llm")
+YANDEX_INTENT_TIMEOUT_SECONDS = int(
+    os.getenv("YANDEX_INTENT_TIMEOUT_SECONDS", "60")
+)
+
 PHOENIX_COLLECTOR_ENDPOINT = os.getenv(
     "PHOENIX_COLLECTOR_ENDPOINT",
     "http://phoenix:6006/v1/traces",

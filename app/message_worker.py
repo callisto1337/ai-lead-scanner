@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from app.db.lead_results import has_recent_user_lead
 from app.embeddings import create_embedding
+from app.filter import classify_message_for_niches
 from app.metrics import user_lead_cooldown_skipped, message_queue_size, message_processing_delay_seconds
 from app.prefilter import prefilter_niche_message
 from app.queue import message_queue
@@ -11,23 +12,26 @@ from app.db.niches import get_active_niches_with_config
 from app.db.telegram_configs import get_telegram_config_by_company
 from app.bot.sender import send_to_leads
 from app.sender_utils import enrich_sender_info
-from app.lead_processor import process_message
+from app.lead_processor import save_classification_result
 from app.settings import USER_LEAD_COOLDOWN_MINUTES
-from app.types import MessageQueueItem, NicheWithConfig, ProcessMessageResult, LeadResult
+from app.types import (
+    IsLeadResult,
+    LeadResult,
+    MessageQueueItem,
+    NicheWithConfig,
+    ProcessMessageResult,
+)
 
 
-async def process_niche(
+async def gate_niche(
     job: MessageQueueItem,
     niche: NicheWithConfig,
-) -> None:
-    print(
-        (
-            f"🔎 Проверка ниши: "
-            f"{niche['company_name']} / {niche['name']}"
-        ),
-        flush=True,
-    )
-
+) -> bool:
+    """
+    Проверки, не требующие обращения к ИИ (свои для каждой ниши):
+    blacklist конкретной ниши и cooldown по отправителю. Возвращает
+    True, если сообщение для этой ниши стоит классифицировать.
+    """
     niche_prefilter_result = prefilter_niche_message(
         text=job["clean_text"],
         reply_text=job["reply_text"],
@@ -45,7 +49,8 @@ async def process_niche(
             flush=True,
         )
         print("---------------", flush=True)
-        return
+
+        return False
 
     sender_id = job["sender_id"]
     has_recent_lead = has_recent_user_lead(
@@ -72,23 +77,33 @@ async def process_niche(
             flush=True,
         )
 
+        return False
+
+    return True
+
+
+async def finalize_niche_result(
+    job: MessageQueueItem,
+    niche: NicheWithConfig,
+    ai_result: IsLeadResult | None,
+) -> None:
+    if ai_result is None:
+        print(
+            f"❌ Классификация не удалась: niche_id={niche['id']}",
+            flush=True,
+        )
+        print("---------------", flush=True)
+
         return
 
-    result: ProcessMessageResult | None = await asyncio.to_thread(
-        process_message,
-        clean_text=job["clean_text"],
+    result: ProcessMessageResult = save_classification_result(
+        ai_result=ai_result,
         message_id=job["message_id"],
         niche=niche,
         sender_id=job["sender_id"],
         sender_name=job["sender_name"],
         sender_username=job["sender_username"],
-        reply_text=job["reply_text"],
-        reply_sender_id=job["reply_sender_id"],
     )
-
-    if not result:
-        print("---------------", flush=True)
-        return
 
     enrich_sender_info(result, job["sender"])
 
@@ -99,7 +114,7 @@ async def process_niche(
 
     if result["verdict"] == "lead":
         print("🔥 Найден лид", flush=True)
-    elif result["verdict"] == "sporno":
+    elif result["verdict"] == "borderline":
         print("❓ Спорный лид", flush=True)
     else:
         print("❌ Нерелевантное сообщение", flush=True)
@@ -173,18 +188,71 @@ async def process_job(job: MessageQueueItem):
 
     await asyncio.to_thread(create_embedding, job["clean_text"])
 
-    results = await asyncio.gather(
-        *(process_niche(job, niche) for niche in niches),
+    # Проверки без ИИ (blacklist ниши, cooldown) — свои на каждую
+    # нишу, дешёвые, идут параллельно.
+    gate_results = await asyncio.gather(
+        *(gate_niche(job, niche) for niche in niches),
         return_exceptions=True,
     )
 
-    for niche, result in zip(niches, results):
-        if isinstance(result, BaseException):
+    eligible_niches: list[NicheWithConfig] = []
+
+    for niche, gate_result in zip(niches, gate_results):
+        if isinstance(gate_result, BaseException):
             print(
                 (
-                    f"❌ Ошибка обработки ниши "
+                    f"❌ Ошибка проверки ниши "
                     f"niche_id={niche['id']}: "
-                    f"{type(result).__name__}: {result}"
+                    f"{type(gate_result).__name__}: {gate_result}"
+                ),
+                flush=True,
+            )
+            continue
+
+        if gate_result:
+            eligible_niches.append(niche)
+
+    if not eligible_niches:
+        return
+
+    # Классификация — ОДНА на сообщение, а не на нишу: extraction и
+    # intent общие для всех прошедших проверку ниш (см.
+    # app.filter.classify_message_for_niches), niche-match — свой на
+    # каждую нишу.
+    try:
+        results_by_niche_id = await asyncio.to_thread(
+            classify_message_for_niches,
+            text=job["clean_text"],
+            niches=eligible_niches,
+            sender_id=job["sender_id"],
+            reply_text=job["reply_text"],
+            reply_sender_id=job["reply_sender_id"],
+        )
+    except Exception as error:
+        print(
+            f"❌ classify_message_for_niches упал: {type(error).__name__}: {error}",
+            flush=True,
+        )
+        traceback.print_exc()
+        return
+
+    finalize_results = await asyncio.gather(
+        *(
+            finalize_niche_result(
+                job, niche, results_by_niche_id.get(int(niche["id"]))
+            )
+            for niche in eligible_niches
+        ),
+        return_exceptions=True,
+    )
+
+    for niche, finalize_result in zip(eligible_niches, finalize_results):
+        if isinstance(finalize_result, BaseException):
+            print(
+                (
+                    f"❌ Ошибка обработки результата ниши "
+                    f"niche_id={niche['id']}: "
+                    f"{type(finalize_result).__name__}: {finalize_result}"
                 ),
                 flush=True,
             )
