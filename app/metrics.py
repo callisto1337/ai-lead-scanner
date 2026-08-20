@@ -2,65 +2,71 @@ from prometheus_client import Counter, Histogram, start_http_server, Gauge
 
 message_received = Counter(
     "lead_scanner_messages_received_total",
-    "Total received Telegram messages",
+    "Всего получено сообщений из Telegram",
     ["company_id", "niche_id"],
 )
 
 ai_request = Counter(
     "lead_scanner_ai_requests_total",
-    "Total AI classification requests",
+    "Всего запросов на классификацию к ИИ",
     ["company_id", "niche_id"],
 )
 
 lead_detected = Counter(
     "lead_scanner_leads_detected_total",
-    "Total AI detected leads",
+    "Всего лидов, найденных ИИ",
     ["company_id", "niche_id"],
 )
 
 borderline_detected = Counter(
     "lead_scanner_borderline_detected_total",
-    "Total AI detected borderline leads",
+    "Всего спорных лидов, найденных ИИ",
     ["company_id", "niche_id"],
 )
 
 spam_detected = Counter(
     "lead_scanner_spam_detected_total",
-    "Total messages rejected by prefilter/spam filters",
+    "Всего сообщений, отклонённых префильтром/спам-фильтрами",
 )
 
 telegram_send_errors = Counter(
     "lead_scanner_telegram_send_errors_total",
-    "Total Telegram send errors",
+    "Всего ошибок отправки в Telegram",
 )
 
 feedback_total = Counter(
     "lead_scanner_feedback_total",
-    "Total operator feedback events",
+    "Всего событий обратной связи от оператора",
     ["feedback"],
 )
 
 ai_time = Histogram(
     "lead_scanner_ai_duration_seconds",
-    "AI request duration in seconds",
+    "Время ответа ИИ в секундах",
 )
 
 user_lead_cooldown_skipped = Counter(
     "lead_scanner_user_cooldown_skipped_total",
-    "Messages skipped because the user already produced a lead during cooldown",
+    "Сообщения, пропущенные из-за того, что пользователь уже дал лид во время cooldown",
     ["company_id", "niche_id"],
 )
 
 chat_priority_skipped = Counter(
     "lead_scanner_chat_priority_skipped_total",
-    "Messages skipped by (niche, chat) priority sampling",
+    "Сообщения, пропущенные семплированием по приоритету (ниша, чат)",
     ["company_id", "niche_id"],
 )
 
 chat_priority_evaluated = Counter(
     "lead_scanner_chat_priority_evaluated_total",
-    "Messages that reached priority sampling (denominator for skip rate)",
+    "Сообщения, дошедшие до проверки приоритета (знаменатель для доли пропуска)",
     ["company_id", "niche_id"],
+)
+
+intent_ai_requests = Counter(
+    "lead_scanner_intent_ai_requests_total",
+    "Запросы к ИИ по оси intent (те самые, что платные при INTENT_BACKEND=yandex)",
+    ["backend"],
 )
 
 ai_request_duration_seconds = Histogram(

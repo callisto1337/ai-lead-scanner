@@ -1,7 +1,12 @@
 import concurrent.futures
 from typing import Any, cast
 
-from app.metrics import ai_errors, extraction_empty_total, thinking_retry_total
+from app.metrics import (
+    ai_errors,
+    extraction_empty_total,
+    intent_ai_requests,
+    thinking_retry_total,
+)
 from app.model_client import (
     EXTRACTION_OUTPUT_SCHEMA,
     INTENT_OUTPUT_SCHEMA,
@@ -594,6 +599,8 @@ def _call_intent_model(
     # Гибридная схема: intent может уходить на более сильную внешнюю
     # модель (см. app/settings.INTENT_BACKEND), а extraction/niche
     # остаются на локальной — та ось, где нюанс важнее объёма звонков.
+    intent_ai_requests.labels(backend=INTENT_BACKEND).inc()
+
     if INTENT_BACKEND == "yandex":
         from app.yandex_client import call_model_yandex
 
