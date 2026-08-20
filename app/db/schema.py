@@ -199,7 +199,7 @@ def init_db():
                 human_niche_match TEXT,
                 human_intent_match TEXT,
 
-                sent_to_telegram  BOOLEAN     NOT NULL DEFAULT FALSE,
+                sent_to_telegram  BOOLEAN,
                 sent_at           TIMESTAMPTZ,
 
                 detected_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -230,6 +230,16 @@ def init_db():
         )
         conn.execute(
             "ALTER TABLE lead_results ADD COLUMN IF NOT EXISTS human_intent_match TEXT"
+        )
+        conn.execute(
+            # NULL = отправка ещё не пыталась (не лид, либо не дошли
+            # руки); FALSE — реальная неудачная попытка отправки;
+            # TRUE — реально отправлено. Раньше был NOT NULL DEFAULT
+            # FALSE, из-за чего FALSE ничего не говорил о судьбе лида.
+            "ALTER TABLE lead_results ALTER COLUMN sent_to_telegram DROP DEFAULT"
+        )
+        conn.execute(
+            "ALTER TABLE lead_results ALTER COLUMN sent_to_telegram DROP NOT NULL"
         )
         conn.execute(
             """

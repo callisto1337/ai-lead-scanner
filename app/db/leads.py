@@ -75,6 +75,25 @@ def save_lead_result(
     return cast(SavedLeadResult | None, row)
 
 
+def mark_lead_send_result(lead_result_id: LeadResultId, sent: bool) -> None:
+    current_time = now_utc()
+    sent_at = current_time if sent else None
+
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE lead_results
+            SET sent_to_telegram = %s,
+                sent_at = %s,
+                updated_at = %s
+            WHERE id = %s
+            """,
+            (sent, sent_at, current_time, lead_result_id),
+        )
+
+        conn.commit()
+
+
 def get_user_id_by_lead_result_id(lead_result_id: LeadResultId) -> TgUserId | None:
     with get_connection() as conn:
         row = conn.execute(

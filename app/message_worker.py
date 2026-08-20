@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from app.db.chat_priority import get_chat_niche_sample_rate
 from app.db.lead_results import has_recent_user_lead
+from app.db.leads import mark_lead_send_result
 from app.embeddings import create_embedding
 from app.filter import classify_message_for_niches
 from app.metrics import (
@@ -207,6 +208,8 @@ async def finalize_niche_result(
             telegram_config,
         )
 
+        mark_lead_send_result(lead_result["lead_result_id"], sent)
+
         if not sent:
             print("⚠️ Лид найден, но не отправлен в чат лидов", flush=True)
 
@@ -215,6 +218,8 @@ async def finalize_niche_result(
         print("❌ Ошибка при отправке лида:", flush=True)
 
         traceback.print_exc()
+
+        mark_lead_send_result(lead_result["lead_result_id"], False)
 
 
 async def process_job(job: MessageQueueItem):
