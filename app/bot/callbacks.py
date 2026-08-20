@@ -62,7 +62,7 @@ def get_axis_rating_data(
             niche_match="нет",
             intent_match=None,
             label="❌ тема не совпала",
-            text="❌ Оценка: тема не совпала (не лид)",
+            text="❌ Оценка: тема не совпала",
         )
 
     if intent_match == "да":
@@ -72,7 +72,7 @@ def get_axis_rating_data(
             niche_match="да",
             intent_match="да",
             label="✅ тема совпала, нужна помощь",
-            text="✅ Оценка: тема совпала, нужна помощь (лид)",
+            text="✅ Оценка: тема совпала, нужна помощь",
         )
 
     return RatingData(
@@ -81,7 +81,7 @@ def get_axis_rating_data(
         niche_match="да",
         intent_match="нет",
         label="✅ тема, ❌ помощь не нужна",
-        text="✅ Оценка: тема совпала, помощь не нужна (не лид)",
+        text="❌ Оценка: тема совпала, помощь не нужна",
     )
 
 
