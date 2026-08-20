@@ -51,6 +51,12 @@ user_lead_cooldown_skipped = Counter(
     ["company_id", "niche_id"],
 )
 
+chat_priority_skipped = Counter(
+    "lead_scanner_chat_priority_skipped_total",
+    "Messages skipped by (niche, chat) priority sampling",
+    ["company_id", "niche_id"],
+)
+
 ai_request_duration_seconds = Histogram(
     "lead_scanner_ai_request_duration_seconds",
     "Время ответа модели",

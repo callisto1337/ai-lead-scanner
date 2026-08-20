@@ -323,6 +323,31 @@ def init_db():
 
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS chat_niche_priority
+            (
+                niche_id    BIGINT           NOT NULL REFERENCES niches (id) ON DELETE CASCADE,
+                tg_chat_id  BIGINT           NOT NULL,
+
+                sample_rate DOUBLE PRECISION NOT NULL,
+                samples     INTEGER          NOT NULL DEFAULT 0,
+                successes   INTEGER          NOT NULL DEFAULT 0,
+
+                updated_at  TIMESTAMPTZ      NOT NULL DEFAULT now(),
+
+                PRIMARY KEY (niche_id, tg_chat_id)
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_lead_results_niche_detected_at
+                ON lead_results (niche_id, detected_at)
+            """
+        )
+
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_lead_results_detected_at
                 ON lead_results (detected_at)
             """

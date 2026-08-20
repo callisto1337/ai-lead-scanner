@@ -7,10 +7,11 @@ import traceback
 
 from telethon.errors import FloodWaitError  # pyright: ignore[reportMissingTypeStubs]
 
+from app.chat_priority_worker import chat_priority_worker
 from app.embedding_worker import embedding_worker
 from app.message_worker import message_worker
 from app.metrics import start_metrics
-from app.settings import MESSAGE_WORKERS_COUNT
+from app.settings import CHAT_PRIORITY_ENABLED, MESSAGE_WORKERS_COUNT
 from app.types import TelegramClientProtocol
 from app.watchdog import connection_watchdog
 
@@ -57,6 +58,16 @@ def run_monitor(client: TelegramClientProtocol) -> None:
         client.loop.create_task(
             connection_watchdog(client)
         )
+
+        if CHAT_PRIORITY_ENABLED:
+            client.loop.create_task(
+                chat_priority_worker()
+            )
+
+            print(
+                "🎯 Приоритизация чатов включена",
+                flush=True,
+            )
 
         print("🖥️ Мониторинг запущен", flush=True)
 

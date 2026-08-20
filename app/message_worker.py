@@ -1,11 +1,18 @@
 import asyncio
+import random
 import traceback
 from datetime import datetime, timezone
 
+from app.db.chat_priority import get_chat_niche_sample_rate
 from app.db.lead_results import has_recent_user_lead
 from app.embeddings import create_embedding
 from app.filter import classify_message_for_niches
-from app.metrics import user_lead_cooldown_skipped, message_queue_size, message_processing_delay_seconds
+from app.metrics import (
+    chat_priority_skipped,
+    user_lead_cooldown_skipped,
+    message_queue_size,
+    message_processing_delay_seconds,
+)
 from app.prefilter import prefilter_niche_message
 from app.queue import message_queue
 from app.db.niches import get_active_niches_with_config
@@ -13,7 +20,7 @@ from app.db.telegram_configs import get_telegram_config_by_company
 from app.bot.sender import send_to_leads
 from app.sender_utils import enrich_sender_info
 from app.lead_processor import save_classification_result
-from app.settings import USER_LEAD_COOLDOWN_MINUTES
+from app.settings import CHAT_PRIORITY_ENABLED, USER_LEAD_COOLDOWN_MINUTES
 from app.types import (
     IsLeadResult,
     LeadResult,
@@ -29,8 +36,9 @@ async def gate_niche(
 ) -> bool:
     """
     Проверки, не требующие обращения к ИИ (свои для каждой ниши):
-    blacklist конкретной ниши и cooldown по отправителю. Возвращает
-    True, если сообщение для этой ниши стоит классифицировать.
+    blacklist конкретной ниши, cooldown по отправителю и приоритизация
+    по (нише, чату). Возвращает True, если сообщение для этой ниши
+    стоит классифицировать.
     """
     niche_prefilter_result = prefilter_niche_message(
         text=job["clean_text"],
@@ -78,6 +86,31 @@ async def gate_niche(
         )
 
         return False
+
+    if CHAT_PRIORITY_ENABLED:
+        sample_rate = get_chat_niche_sample_rate(
+            niche["id"],
+            job["tg_chat_id"],
+        )
+
+        if random.random() > sample_rate:
+            chat_priority_skipped.labels(
+                company_id=str(niche["company_id"]),
+                niche_id=str(niche["id"]),
+            ).inc()
+
+            print(
+                (
+                    "🎯 Пропуск по приоритизации чата: "
+                    f"company_id={niche['company_id']}, "
+                    f"niche_id={niche['id']}, "
+                    f"tg_chat_id={job['tg_chat_id']}, "
+                    f"sample_rate={sample_rate:.3f}"
+                ),
+                flush=True,
+            )
+
+            return False
 
     return True
 

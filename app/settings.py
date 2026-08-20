@@ -61,6 +61,25 @@ YANDEX_INTENT_TIMEOUT_SECONDS = int(
     os.getenv("YANDEX_INTENT_TIMEOUT_SECONDS", "60")
 )
 
+# Автоматическая приоритизация (ниша, чат): вместо того чтобы гонять
+# 100% сообщений через niche-match для всех активных ниш, для каждой
+# пары (ниша, чат) считаем долю "да"/"спорно" за последние N дней
+# (chat_priority_worker пересчитывает раз в CHAT_PRIORITY_REFRESH_SECONDS)
+# и семплируем звонки в модель с этой вероятностью. Окно короткое
+# специально — чтобы не ждать неделями, пока приоритет чата догонит
+# резко изменившуюся реальность (например, всплеск по инфоповоду).
+# CHAT_PRIORITY_ENABLED=False по умолчанию — ничего не меняется, пока
+# не включили явно.
+CHAT_PRIORITY_ENABLED = env_flag("CHAT_PRIORITY_ENABLED", False)
+CHAT_PRIORITY_WINDOW_DAYS = int(os.getenv("CHAT_PRIORITY_WINDOW_DAYS", "14"))
+CHAT_PRIORITY_FLOOR_RATE = float(os.getenv("CHAT_PRIORITY_FLOOR_RATE", "0.10"))
+CHAT_PRIORITY_PRIOR_STRENGTH = float(
+    os.getenv("CHAT_PRIORITY_PRIOR_STRENGTH", "10")
+)
+CHAT_PRIORITY_REFRESH_SECONDS = int(
+    os.getenv("CHAT_PRIORITY_REFRESH_SECONDS", "3600")
+)
+
 PHOENIX_COLLECTOR_ENDPOINT = os.getenv(
     "PHOENIX_COLLECTOR_ENDPOINT",
     "http://phoenix:6006/v1/traces",
