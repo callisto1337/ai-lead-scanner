@@ -8,6 +8,7 @@ from app.db.lead_results import has_recent_user_lead
 from app.embeddings import create_embedding
 from app.filter import classify_message_for_niches
 from app.metrics import (
+    chat_priority_evaluated,
     chat_priority_skipped,
     user_lead_cooldown_skipped,
     message_queue_size,
@@ -88,6 +89,11 @@ async def gate_niche(
         return False
 
     if CHAT_PRIORITY_ENABLED:
+        chat_priority_evaluated.labels(
+            company_id=str(niche["company_id"]),
+            niche_id=str(niche["id"]),
+        ).inc()
+
         sample_rate = get_chat_niche_sample_rate(
             niche["id"],
             job["tg_chat_id"],
